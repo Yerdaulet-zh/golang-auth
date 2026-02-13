@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"ariga.io/atlas-provider-gorm/gormschema"
-	"github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
+	persistency "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
 	usersessions "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_sessions"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
@@ -20,7 +20,7 @@ func main() {
 	}
 
 	stmts, err := gormschema.New("postgres", gormschema.WithConfig(config)).Load(
-		&user.User{},
+		&persistency.User{},
 		&usersessions.UserSessions{},
 		&usersessions.AuditUserSessions{},
 	)
