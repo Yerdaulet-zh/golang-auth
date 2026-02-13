@@ -39,9 +39,8 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 		h.writeJSONError(w, http.StatusBadRequest, "Missing or invalid required fields "+err.Error())
 		return
 	}
-	ctx := r.Context()
-	_ = ctx
 
+	ctx := r.Context()
 	if err := h.userService.Register(ctx, req.Email, req.Password); err != nil {
 		h.mapErrorToResponse(w, err)
 		return
@@ -76,6 +75,12 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusInternalServerError, "")
 	case errors.Is(err, domain.ErrHashingError):
 		h.writeJSONError(w, http.StatusInternalServerError, "")
+	case errors.Is(err, domain.ErrDomainInternalError):
+		h.writeJSONError(w, http.StatusInternalServerError, "")
+
+	// 400 Bad Request Errors
+	case errors.Is(err, domain.ErrInvalidEmail):
+		h.writeJSONError(w, http.StatusBadRequest, "Invalid Email")
 
 	// 500 Internal Server Error (The Default)
 	default:

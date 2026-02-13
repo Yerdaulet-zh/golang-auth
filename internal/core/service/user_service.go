@@ -21,6 +21,15 @@ func NewUserService(repo *repository.UserRepository, logger ports.Logger) *UserS
 	}
 }
 func (s *UserSerivce) Register(ctx context.Context, email, password string) error {
+
+	if err := isValidEmail(email); err != nil {
+		if errors.Is(err, domain.ErrInvalidEmail) {
+			return domain.ErrInvalidEmail
+		}
+		s.logger.Error("Domain", "Error while checking user email", "error", err)
+		return domain.ErrDomainInternalError
+	}
+
 	hashedPassword, err := HashPassword(password)
 	if err != nil {
 		s.logger.Error("Error while trying to hash password", "error", err)

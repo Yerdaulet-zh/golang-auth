@@ -7,6 +7,8 @@ var (
 	ErrRepositoryInternalError = errors.New("Error while executing GetUserByEmail")
 	ErrUserByEmailExists       = errors.New("User by such email is already exists")
 	ErrHashingError            = errors.New("Error while hashing a password")
+	ErrInvalidEmail            = errors.New("Invalid Email")
+	ErrDomainInternalError     = errors.New("Domain Internal error")
 
 	// Repository
 	ErrUserAlreadyExists     = errors.New("There is no user with such email")

@@ -88,6 +88,7 @@ require (
 
 require (
 	ariga.io/atlas-provider-gorm v0.6.0
+	github.com/badoux/checkmail v1.2.4
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect

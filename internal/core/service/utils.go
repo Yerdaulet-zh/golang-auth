@@ -1,6 +1,10 @@
 package service
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"github.com/badoux/checkmail"
+	"github.com/golang-auth/internal/core/domain"
+	"golang.org/x/crypto/bcrypt"
+)
 
 func HashPassword(password string) (string, error) {
 	passwordBytes := []byte(password)
@@ -14,4 +18,14 @@ func HashPassword(password string) (string, error) {
 func CheckPasswordHash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+func isValidEmail(email string) error {
+	if err := checkmail.ValidateFormat(email); err != nil {
+		return domain.ErrInvalidEmail
+	}
+	if err := checkmail.ValidateHost(email); err != nil {
+		return domain.ErrInvalidEmail
+	}
+	return nil
 }
