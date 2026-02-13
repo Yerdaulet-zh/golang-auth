@@ -1,4 +1,4 @@
-package usersessions
+package domainusersessions
 
 import (
 	"time"

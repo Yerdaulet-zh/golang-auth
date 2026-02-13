@@ -1,10 +1,10 @@
-package usersessions
+package repousersessions
 
 import (
 	"time"
 
-	persistency "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
-	domain_sessions "github.com/golang-auth/internal/core/domain/user_sessions"
+	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
+	domainusersessions "github.com/golang-auth/internal/core/domain/user_sessions"
 	"github.com/google/uuid"
 )
 
@@ -29,10 +29,10 @@ type AuditUserSessions struct {
 	NewValue  *string   `gorm:"type:text"`
 	CreatedAt time.Time `gorm:"type:timestamptz;default:now();not null"`
 
-	User persistency.User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User repouser.User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
-func MapAuditToDomain(orm AuditUserSessions) domain_sessions.AuditUserSessions {
+func MapAuditToDomain(orm AuditUserSessions) domainusersessions.AuditUserSessions {
 	oldVal := ""
 	if orm.OldValue != nil {
 		oldVal = *orm.OldValue
@@ -43,7 +43,7 @@ func MapAuditToDomain(orm AuditUserSessions) domain_sessions.AuditUserSessions {
 		newVal = *orm.NewValue
 	}
 
-	return domain_sessions.AuditUserSessions{
+	return domainusersessions.AuditUserSessions{
 		ID:        orm.ID,
 		SessionID: orm.SessionID,
 		UserID:    orm.UserID,
@@ -54,7 +54,7 @@ func MapAuditToDomain(orm AuditUserSessions) domain_sessions.AuditUserSessions {
 	}
 }
 
-func MapAuditToORM(d domain_sessions.AuditUserSessions) AuditUserSessions {
+func MapAuditToORM(d domainusersessions.AuditUserSessions) AuditUserSessions {
 	// In Audit logs, we often want to store empty strings as NULL in DB
 	var oldPtr *string
 	if d.OldValue != "" {

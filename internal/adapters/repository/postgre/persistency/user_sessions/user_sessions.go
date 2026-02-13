@@ -1,9 +1,9 @@
-package usersessions
+package repousersessions
 
 import (
 	"time"
 
-	persistency "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
+	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
 	domain_sessions "github.com/golang-auth/internal/core/domain/user_sessions"
 	"github.com/google/uuid"
 )
@@ -18,7 +18,7 @@ type UserSessions struct {
 	LastActive time.Time `gorm:"type:timestamptz;default:now();not null"`
 	ExpiresAt  time.Time `gorm:"type:timestamptz;not null"`
 
-	User persistency.User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	User repouser.User `gorm:"foreignKey:UserID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func MapSessionToDomain(orm UserSessions) domain_sessions.UserSessions {
