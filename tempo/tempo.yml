@@ -1,0 +1,44 @@
+server:
+  http_listen_port: 3200
+  log_level: info
+
+# Enable partitioned ring for local single-binary mode
+partition_ring_live_store: true
+stream_over_http_enabled: true
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+# Simplified storage for local Docker setup (Filesystem instead of S3)
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: docker-compose
+  storage:
+    path: /var/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+
+overrides:
+  defaults:
+    metrics_generator:
+      processors: ["span-metrics", "service-graphs"]
+
+usage_report:
+  reporting_enabled: false

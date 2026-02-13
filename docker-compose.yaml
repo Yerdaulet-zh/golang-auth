@@ -1,0 +1,213 @@
+x-logging: &loki-logging
+  logging:
+    driver: loki
+    options:
+      loki-url: "http://localhost:3100/loki/api/v1/push"
+      loki-batch-size: "400"
+      loki-batch-wait: "1s"
+      loki-retries: "3"
+      loki-max-backoff: "5s"
+      loki-timeout: "10s"
+      loki-external-labels: "container={{.ImageName}},stack=monitoring"
+      keep-file: "true"
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # --- DATABASES ---
+  postgres:
+    image: postgres:17.3
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d myapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: myapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    <<: *loki-logging
+
+  redis:
+    image: redis:7.4-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis:/data
+    restart: unless-stopped
+    <<: *loki-logging
+
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   environment:
+  #     - REDIS_HOSTS=local:redis:6379
+  #   ports:
+  #     - "8081:8081"
+  #   depends_on:
+  #     - redis
+  #   restart: unless-stopped
+  #   <<: *loki-logging
+
+  # --- EXPORTERS ---
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9187/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      DATA_SOURCE_NAME: "postgresql://admin:password@postgres:5432/myapp?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    <<: *loki-logging
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9121/metrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    environment:
+      - REDIS_ADDR=redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    <<: *loki-logging
+
+  # --- MONITORING ---
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-remote-write-receiver'
+      - '--enable-feature=examplar-storage'
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:172.17.0.1"
+    restart: unless-stopped
+    <<: *loki-logging
+
+  loki:
+    image: grafana/loki:latest
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    # Loki logs to itself can cause a loop;
+    <<: *loki-logging
+
+  tempo:
+    image: grafana/tempo:latest
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo.yaml
+      # Bind mount for local storage of Tempo logs
+      - ./tempo/logs/tempo:/var/log/tempo 
+      # Named volume for trace data (WAL, etc)
+      - tempo:/var/tempo
+    ports:
+      - "3200:3200" 
+      - "9095:9095" 
+      # - "4317:4317"
+      # - "4318:4318"
+    restart: unless-stopped
+    <<: *loki-logging
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC (Go App sends here)
+      - "4318:4318"   # OTLP HTTP (Go App sends here)
+      - "8888:8888" # Collector metrics
+      - "8888:8888"
+      - "55679:55679"
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+    restart: unless-stopped
+    <<: *loki-logging
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_DEFAULT_THEME=light
+    volumes:
+      - grafana:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+    <<: *loki-logging
+  
+  # go-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: go-app
+  #   ports:
+  #     - "2112:2112"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - otel-collector
+  #   environment:
+  #     CONFIG_PATH: /app/configs/configs.yaml
+  #   <<: *loki-logging
+
+volumes:
+  postgres:
+    external: false
+    name: user-authentication-authorization_postgres_data
+  redis:
+    external: false
+    name: user-authentication-authorization_redis_data
+  prometheus:
+    external: false
+    name: user-authentication-authorization_prometheus_data
+  tempo:
+    external: false
+  grafana:
+    external: false
+    name: user-authentication-authorization_grafana_data
