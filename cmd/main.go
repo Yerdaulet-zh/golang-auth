@@ -7,6 +7,8 @@ import (
 
 	httpserver "github.com/golang-auth/cmd/http_server"
 	"github.com/golang-auth/internal/adapters/config"
+	"github.com/golang-auth/internal/adapters/repository"
+	"github.com/golang-auth/internal/core/service"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -33,16 +35,16 @@ func main() {
 
 	reg := prometheus.NewRegistry()
 
-	// userRepo := postgre.NewUserRepository(client.DB, logger)
-	// userService := service.NewUserService(userRepo)
+	userRepo := repository.NewUserRepository(client.DB, logger)
+	userService := service.NewUserService(userRepo, logger)
 
-	// mapBusinessHandler := httpserver.MapBusinessRoutes(logger, rdb, userService)
+	mapBusinessHandler := httpserver.MapBusinessRoutes(logger, rdb, userService)
 	mapManagementRoutes := httpserver.MapManagementRoutes(logger, client, reg)
 	errChan := make(chan error, 1)
 
-	// go func() {
-	// 	errChan <- httpserver.Run(ctx, logger, mapBusinessHandler, ...)
-	// }()
+	go func() {
+		errChan <- httpserver.Run(ctx, logger, mapBusinessHandler, httpConfig.HttpBusinessAddr(), "Business")
+	}()
 
 	go func() {
 		errChan <- httpserver.Run(ctx, logger, mapManagementRoutes, httpConfig.HttpManagementAddr(), "Management")

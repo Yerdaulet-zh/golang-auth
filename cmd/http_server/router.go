@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	// http_hanlder "github.com/golang-auth/internal/adapters/handlers/http"
+	http_hanlder "github.com/golang-auth/internal/adapters/handlers/http"
 	"github.com/golang-auth/internal/adapters/handlers/http/middleware"
 	"github.com/golang-auth/internal/adapters/repository/postgre"
 	"github.com/golang-auth/internal/core/ports"
@@ -26,12 +26,12 @@ func ApplyMiddleware(h http.Handler, mws ...Middleware) http.Handler {
 func MapBusinessRoutes(
 	logger ports.Logger,
 	rdb *redis.Client,
-	userSvc ports.UserUseCase,
+	userService ports.UserUseCase,
 ) http.Handler {
 	mux := http.NewServeMux()
 
-	// userHandler := http_hanlder.NewUserHandler(userSvc)
-	// mux.HandleFunc("POST /v1/register", userHandler.Register)
+	userHandler := http_hanlder.NewUserHandler(userService, logger)
+	mux.HandleFunc("POST /v1/register", userHandler.Register)
 	// mux.HandleFunc("POST /v1/register/verify/{token}", userHandler.VerifyUserEmail)
 	// mux.HandleFunc("POST /v1/login", userHandler.Login)
 

@@ -1,3 +1,9 @@
 package ports
 
-type UserUseCase interface{}
+import (
+	"context"
+)
+
+type UserUseCase interface {
+	Register(ctx context.Context, email, password string) error
+}
