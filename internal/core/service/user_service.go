@@ -20,7 +20,6 @@ func NewUserService(repo ports.UserRepoPorts, logger ports.Logger) *UserSerivce 
 	}
 }
 func (s *UserSerivce) Register(ctx context.Context, email, password string) error {
-
 	if err := isValidEmail(email); err != nil {
 		if errors.Is(err, domain.ErrInvalidEmail) {
 			return domain.ErrInvalidEmail
