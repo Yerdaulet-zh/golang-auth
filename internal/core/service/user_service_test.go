@@ -8,6 +8,7 @@ import (
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
+	"github.com/golang-auth/internal/testutil"
 )
 
 // Mock Implementation
@@ -23,14 +24,6 @@ func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repou
 func (m *mockUserRepo) CreateUserWithCredentials(ctx context.Context, req ports.UserAndCredentialsRequest) error {
 	return m.createUserFn(ctx, req)
 }
-
-type noopLogger struct{}
-
-func (l *noopLogger) Debug(msg string, args ...interface{}) {}
-func (l *noopLogger) Info(msg string, args ...interface{})  {}
-func (l *noopLogger) Error(msg string, args ...interface{}) {}
-func (l *noopLogger) Warn(msg string, args ...interface{})  {}
-func (l *noopLogger) Fatal(msg string, args ...interface{}) {}
 
 func TestUserService_Register(t *testing.T) {
 	tests := []struct {
@@ -129,7 +122,7 @@ func TestUserService_Register(t *testing.T) {
 				tt.setupMock(mockRepo)
 			}
 
-			svc := NewUserService(mockRepo, &noopLogger{})
+			svc := NewUserService(mockRepo, &testutil.NoopLogger{})
 
 			// Execute
 			err := svc.Register(context.Background(), tt.email, tt.password)

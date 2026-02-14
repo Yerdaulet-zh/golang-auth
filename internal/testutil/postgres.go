@@ -17,13 +17,11 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// SetupTestDB initializes a Testcontainer Postgres instance, applies Atlas migrations,
-// and returns a GORM DB connection ready for repository testing.
-func SetupTestDB(t *testing.T) *gorm.DB {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+// SetupGlobalTestDB starts a container without a testing.T context.
+// Returns the GORM DB, the container instance (for cleanup), and error.
+func SetupGlobalTestDB() (*gorm.DB, testcontainers.Container, error) {
+	ctx := context.Background()
 
-	// 1. Spin up the Postgres 17 container
 	pgContainer, err := postgres.Run(ctx,
 		"postgres:17-alpine",
 		postgres.WithDatabase("enterprise_test_db"),
@@ -36,45 +34,24 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		),
 	)
 	if err != nil {
-		t.Fatalf("failed to start container: %s", err)
+		return nil, nil, err
 	}
 
-	// 2. Ensure cleanup
-	t.Cleanup(func() {
-		if err := pgContainer.Terminate(context.Background()); err != nil {
-			t.Logf("failed to terminate container: %s", err)
-		}
-	})
-
-	// 3. Get connection string
 	connStr, err := pgContainer.ConnectionString(ctx, "sslmode=disable", "search_path=public")
 	if err != nil {
-		t.Fatalf("failed to get connection string: %v", err)
+		return nil, nil, err
 	}
 
-	// 4. Run Atlas Migrations
-	applyAtlasMigrations(t, connStr)
+	// Reuse your existing migration logic (wrap it in a check to handle nil *testing.T)
+	applyAtlasMigrations(nil, connStr)
 
-	// 5. Initialize GORM with the container's connection string
-	// gormDB, err := gorm.Open(gormPostgres.Open(connStr), &gorm.Config{
-	// 	// Optional: Disable logging for cleaner test output,
-	// 	// unless you need to debug SQL queries.
-	// 	// Logger: logger.Default.LogMode(logger.Silent),
-	// })
 	gormDB, err := gorm.Open(gormPostgres.Open(connStr), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true, // Use "user" instead of "users"
+			SingularTable: true,
 		},
 	})
-	if err != nil {
-		t.Fatalf("failed to open gorm.DB: %v", err)
-	}
 
-	var tables []string
-	gormDB.Raw("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'").Scan(&tables)
-	t.Logf("DEBUG: Tables found in DB: %v", tables)
-
-	return gormDB
+	return gormDB, pgContainer, err
 }
 
 func applyAtlasMigrations(t *testing.T, connStr string) {
@@ -87,18 +64,63 @@ func applyAtlasMigrations(t *testing.T, connStr string) {
 	// Initialize Atlas client
 	client, err := atlasexec.NewClient(migrationDir, "atlas")
 	if err != nil {
-		t.Fatalf("failed to initialize atlas client: %v", err)
+		// Fix 1: Nil check before Fatalf
+		if t != nil {
+			t.Fatalf("failed to initialize atlas client: %v", err)
+		}
+		panic("failed to initialize atlas client: " + err.Error())
 	}
 
-	// Use MigrateApply with explicit URL and DirURL.
-	// We omit 'Env' to ensure it doesn't try to use your HLC 'local' settings.
 	_, err = client.MigrateApply(ctx, &atlasexec.MigrateApplyParams{
 		URL:    connStr,
 		DirURL: "file://.",
 	})
+
 	if err != nil {
-		t.Fatalf("failed to apply atlas migrations: %v\nCheck if atlas.sum exists in %s", err, migrationDir)
+		// Fix 2: Nil check before Fatalf
+		if t != nil {
+			t.Fatalf("fail: %v", err)
+		}
+		panic("failed to apply migrations: " + err.Error())
 	}
 
-	t.Log("Atlas migrations applied successfully.")
+	// Fix 3: Nil check before Log
+	if t != nil {
+		t.Log("Atlas migrations applied successfully.")
+	}
+}
+
+// TruncateAllTables wipes all data from the public schema without dropping tables.
+func TruncateAllTables(db *gorm.DB) error {
+	var tableNames []string
+
+	// Query to get all user-defined tables in the public schema
+	err := db.Raw(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+        AND table_name <> 'atlas_schema_revisions'
+    `).Scan(&tableNames).Error
+
+	if err != nil {
+		return err
+	}
+
+	if len(tableNames) == 0 {
+		return nil
+	}
+
+	// Join table names and execute TRUNCATE CASCADE
+	// Using CASCADE ensures foreign key constraints don't block the truncation
+	query := "TRUNCATE TABLE "
+	for i, name := range tableNames {
+		query += "\"" + name + "\""
+		if i < len(tableNames)-1 {
+			query += ", "
+		}
+	}
+	query += " CASCADE"
+
+	return db.Exec(query).Error
 }
