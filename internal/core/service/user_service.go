@@ -4,17 +4,16 @@ import (
 	"context"
 	"errors"
 
-	"github.com/golang-auth/internal/adapters/repository"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
 )
 
 type UserSerivce struct {
-	repo   *repository.UserRepository
+	repo   ports.UserRepoPorts
 	logger ports.Logger
 }
 
-func NewUserService(repo *repository.UserRepository, logger ports.Logger) *UserSerivce {
+func NewUserService(repo ports.UserRepoPorts, logger ports.Logger) *UserSerivce {
 	return &UserSerivce{
 		repo:   repo,
 		logger: logger,
