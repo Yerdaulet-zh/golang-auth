@@ -1,66 +1,119 @@
 package repository
 
-// func TestUserRepository_Integration(t *testing.T) {
-// 	logger := logging.NewStdoutLogger()
+import (
+	"context"
+	"errors"
+	"os"
+	"testing"
 
-// 	// 1. Initialize the Real Database via Testcontainers & Atlas
-// 	gormDB := testutil.SetupTestDB(t)
-// 	repo := NewUserRepository(gormDB, logger)
-// 	ctx := context.Background()
+	"github.com/golang-auth/internal/core/domain"
+	"github.com/golang-auth/internal/core/ports"
+	"github.com/golang-auth/internal/testutil"
+	"gorm.io/gorm"
+)
 
-// 	t.Run("CreateUserWithCredentials_Success", func(t *testing.T) {
-// 		req := ports.UserAndCredentialsRequest{
-// 			Email:        "user@enterprise.com",
-// 			UserStatus:   "active",
-// 			IsMFAEnabled: false,
-// 			PasswordHash: "$2a$12$test-hash",
-// 		}
+var testDB *gorm.DB
 
-// 		// Act
-// 		err := repo.CreateUserWithCredentials(ctx, req)
+func TestMain(m *testing.M) {
+	db, container, err := testutil.SetupGlobalTestDB()
+	if err != nil {
+		panic("Failed to setup repository test DB: " + err.Error())
+	}
+	testDB = db
 
-// 		// Assert
-// 		assert.NoError(t, err)
+	code := m.Run()
 
-// 		// Verify data exists in DB
-// 		user, err := repo.GetUserByEmail(ctx, "user@enterprise.com")
-// 		assert.NoError(t, err)
-// 		assert.Equal(t, req.Email, user.Email)
-// 		assert.Equal(t, req.UserStatus, user.UserStatus)
-// 	})
+	_ = container.Terminate(context.Background())
+	os.Exit(code)
+}
 
-// 	t.Run("GetUserByEmail_NotFound", func(t *testing.T) {
-// 		// Act
-// 		user, err := repo.GetUserByEmail(ctx, "non-existent@test.com")
+func TestUserRepository_GetUserByEmail(t *testing.T) {
+	testutil.TruncateAllTables(testDB)
+	repo := NewUserRepository(testDB, &testutil.NoopLogger{})
+	ctx := context.Background()
 
-// 		// Assert
-// 		assert.ErrorIs(t, err, domain.ErrNotFound)
-// 		assert.Nil(t, user)
-// 	})
+	t.Run("Should return ErrNotFound when user doesn't exist", func(t *testing.T) {
+		user, err := repo.GetUserByEmail(ctx, "nonexistent@test.com")
+		if user != nil {
+			t.Error("Expected nil user")
+		}
+		if !errors.Is(err, domain.ErrNotFound) {
+			t.Errorf("Expected domain.ErrNotFound, got %v", err)
+		}
+	})
 
-// 	t.Run("CreateUserWithCredentials_TransactionRollback", func(t *testing.T) {
-// 		// This test ensures that if the second part of the transaction fails,
-// 		// the user is NOT created (Atomic operation).
+	t.Run("Should return user when user exists", func(t *testing.T) {
+		email := "exists@test.com"
+		repo.CreateUserWithCredentials(ctx, ports.UserAndCredentialsRequest{
+			Email:        email,
+			PasswordHash: "hashed_pass",
+		})
 
-// 		// To simulate failure, we send a request that violates a DB constraint
-// 		// (e.g., missing password hash if your Atlas schema requires it)
-// 		// Or we can rely on GORM generic errors.
+		user, err := repo.GetUserByEmail(ctx, email)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if user.Email != email {
+			t.Errorf("Expected email %s, got %s", email, user.Email)
+		}
+	})
+}
 
-// 		invalidReq := ports.UserAndCredentialsRequest{
-// 			Email:        "rollback@test.com",
-// 			PasswordHash: "", // Assume this triggers an error in your logic or DB
-// 		}
+func TestUserRepository_CreateUserWithCredentials(t *testing.T) {
+	repo := NewUserRepository(testDB, &testutil.NoopLogger{})
+	ctx := context.Background()
 
-// 		// Forcing a failure here depends on your DB constraints.
-// 		// If you have a NOT NULL constraint on PasswordHash in Atlas:
-// 		err := repo.CreateUserWithCredentials(ctx, invalidReq)
+	t.Run("Should successfully create user and credentials", func(t *testing.T) {
+		testutil.TruncateAllTables(testDB)
+		req := ports.UserAndCredentialsRequest{
+			Email:        "new@test.com",
+			PasswordHash: "secret_hash",
+		}
 
-// 		// If it failed as expected:
-// 		if err != nil {
-// 			// Verify the user was NOT created due to rollback
-// 			user, err := repo.GetUserByEmail(ctx, "rollback@test.com")
-// 			assert.ErrorIs(t, err, domain.ErrNotFound)
-// 			assert.Nil(t, user)
-// 		}
-// 	})
-// }
+		err := repo.CreateUserWithCredentials(ctx, req)
+		if err != nil {
+			t.Fatalf("Failed to create: %v", err)
+		}
+
+		var userCount, credCount int64
+		testDB.Table("user").Count(&userCount)
+		testDB.Table("user_credentials").Count(&credCount)
+
+		if userCount != 1 || credCount != 1 {
+			t.Errorf("Expected 1 user and 1 cred, got %d and %d", userCount, credCount)
+		}
+	})
+
+	t.Run("Should rollback transaction if second insert fails", func(t *testing.T) {
+		testutil.TruncateAllTables(testDB)
+
+		// We trigger an error by creating a credentials record
+		// that violates a constraint or by manually injecting a failure.
+		// For this test, let's use a very long email that exceeds DB column limits
+		// if applicable, OR simply rely on the fact that 'tx' fix now enables rollback.
+
+		// A reliable way: Attempt to create a user with an email that already exists
+		// (if the first insert succeeds but second fails for another reason)
+		// Since we want to test the TRANSACTION, let's pass an invalid UserID
+		// to the second part. To do this, we'd need to mock the tx, but in integration:
+
+		// Use a password hash that is way too long for a VARCHAR(255) to trigger DB error
+		longHash := string(make([]byte, 5000))
+
+		req := ports.UserAndCredentialsRequest{
+			Email:        "rollback-me@test.com",
+			PasswordHash: longHash,
+		}
+
+		err := repo.CreateUserWithCredentials(ctx, req)
+		if err == nil {
+			t.Error("Expected error due to long password hash, but got nil")
+		}
+
+		var count int64
+		testDB.Table("user").Where("email = ?", "rollback-me@test.com").Count(&count)
+		if count != 0 {
+			t.Error("Transaction failed to rollback: User record exists even though credentials failed")
+		}
+	})
+}
