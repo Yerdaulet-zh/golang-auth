@@ -41,7 +41,7 @@ func (repo *UserRepository) CreateUserWithCredentials(ctx context.Context, req p
 		IsMFAEnabled: req.IsMFAEnabled,
 	}
 	if err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := gorm.G[repouser.User](repo.db).Create(ctx, &repoUser); err != nil {
+		if err := gorm.G[repouser.User](tx).Create(ctx, &repoUser); err != nil {
 			repo.logger.Error("Repository", "Error while insert into user table", "error", err)
 			return domain.ErrDatabaseInternalError
 		}
@@ -50,7 +50,7 @@ func (repo *UserRepository) CreateUserWithCredentials(ctx context.Context, req p
 			UserID:       repoUser.ID,
 			PasswordHash: req.PasswordHash,
 		}
-		if err := gorm.G[repouser.UserCredentials](repo.db).Create(ctx, &repoCred); err != nil {
+		if err := gorm.G[repouser.UserCredentials](tx).Create(ctx, &repoCred); err != nil {
 			repo.logger.Error("Repository", "Error while insert into user_credentials table", "error", err)
 			return domain.ErrDatabaseInternalError
 		}
