@@ -7,8 +7,8 @@ import (
 
 	"ariga.io/atlas-provider-gorm/gormschema"
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
-	useremailverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_email_verification"
 	usersessions "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_sessions"
+	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 )
@@ -25,7 +25,7 @@ func main() {
 		&repouser.UserCredentials{},
 		&usersessions.UserSessions{},
 		&usersessions.AuditUserSessions{},
-		&useremailverification.UserVerification{},
+		&userverification.UserVerification{},
 	)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load gorm schema: %v\n", err)

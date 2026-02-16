@@ -32,7 +32,7 @@ func MapBusinessRoutes(
 
 	userHandler := http_hanlder.NewUserHandler(userService, logger)
 	mux.HandleFunc("POST /v1/register", userHandler.Register)
-	// mux.HandleFunc("POST /v1/register/verify/{token}", userHandler.VerifyUserEmail)
+	mux.HandleFunc("GET /v1/register/verify", userHandler.VerifyUserEmail)
 	// mux.HandleFunc("POST /v1/login", userHandler.Login)
 
 	middlewares := []Middleware{

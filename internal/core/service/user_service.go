@@ -51,3 +51,8 @@ func (s *UserSerivce) Register(ctx context.Context, email, password string) erro
 	}
 	return nil
 }
+
+func (s *UserSerivce) VerifyUserEmail(ctx context.Context, token string) error {
+	err := s.repo.VerifyUserEmail(ctx, token)
+	return err
+}

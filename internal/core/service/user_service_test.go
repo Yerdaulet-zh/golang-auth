@@ -15,6 +15,7 @@ import (
 type mockUserRepo struct {
 	getUserByEmailFn func(ctx context.Context, email string) (*repouser.User, error)
 	createUserFn     func(ctx context.Context, req ports.UserAndCredentialsRequest) error
+	verifyUserEmail  func(ctx context.Context, token string) error
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -23,6 +24,10 @@ func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repou
 
 func (m *mockUserRepo) CreateUserWithCredentials(ctx context.Context, req ports.UserAndCredentialsRequest) error {
 	return m.createUserFn(ctx, req)
+}
+
+func (m *mockUserRepo) VerifyUserEmail(ctx context.Context, token string) error {
+	return m.verifyUserEmail(ctx, token)
 }
 
 func TestUserService_Register(t *testing.T) {

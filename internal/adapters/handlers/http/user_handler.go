@@ -50,6 +50,32 @@ func (h *UserHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "User created, verify email and try to login"})
 }
 
+func (h *UserHandler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Verification token is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	err := h.userService.VerifyUserEmail(ctx, token)
+	if err != nil {
+		h.mapErrorToResponse(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "user account verified successfully",
+	})
+}
+
 func (h *UserHandler) writeJSONError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)

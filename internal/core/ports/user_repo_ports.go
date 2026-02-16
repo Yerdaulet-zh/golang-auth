@@ -9,4 +9,5 @@ import (
 type UserRepoPorts interface {
 	GetUserByEmail(ctx context.Context, email string) (*repouser.User, error)
 	CreateUserWithCredentials(ctx context.Context, req UserAndCredentialsRequest) error
+	VerifyUserEmail(ctx context.Context, token string) error
 }
