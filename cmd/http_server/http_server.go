@@ -8,8 +8,12 @@ import (
 	"os"
 	"time"
 
+	awsCfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
+
 	"github.com/golang-auth/internal/adapters/config"
 	"github.com/golang-auth/internal/adapters/logging"
+	"github.com/golang-auth/internal/adapters/messaging"
 	"github.com/golang-auth/internal/adapters/repository/postgre"
 	"github.com/golang-auth/internal/core/ports"
 	"github.com/redis/go-redis/v9"
@@ -41,7 +45,7 @@ func Run(ctx context.Context, logger ports.Logger, handler http.Handler, addr st
 	return s.Shutdown(shutdownCtx)
 }
 
-func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client) {
+func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client, ports.EventPublisher) {
 	// Configuration
 	cfg, err := config.NewLoggingConfig()
 	if err != nil {
@@ -77,5 +81,30 @@ func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client) {
 	})
 	logger.Info("Successful redis connection")
 
-	return logger, client, rdb
+	// AWS Message Broker
+	awsConfig, err := config.NewAWSConfig()
+	if err != nil {
+		logger.Error("Failed to load AWS config from Viper", "error", err)
+		os.Exit(1)
+	}
+
+	// Load AWS SDK Configuration (reads credentials from .env or Env Vars automatically)
+	ctx := context.Background()
+	awsSDKCfg, err := awsCfg.LoadDefaultConfig(ctx,
+		awsCfg.WithRegion(awsConfig.Region),
+	)
+	if err != nil {
+		logger.Error("Failed to load AWS SDK default config", "error", err)
+		os.Exit(1)
+	}
+
+	// Create SQS Client
+	sqsClient := sqs.NewFromConfig(awsSDKCfg)
+
+	// Initialize the SQS Adapter
+	publisher := messaging.NewSQSAdapter(sqsClient, awsConfig.QueueURL, logger)
+
+	logger.Info("Successful AWS SQS initialization", "region", awsConfig.Region)
+
+	return logger, client, rdb, publisher
 }

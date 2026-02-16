@@ -1,6 +1,9 @@
 package service
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+
 	"github.com/badoux/checkmail"
 	"github.com/golang-auth/internal/core/domain"
 	"golang.org/x/crypto/bcrypt"
@@ -28,4 +31,12 @@ func isValidEmail(email string) error {
 		return domain.ErrInvalidEmail
 	}
 	return nil
+}
+
+func GenerateSecureToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

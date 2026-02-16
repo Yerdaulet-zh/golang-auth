@@ -16,7 +16,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	logger, client, rdb := httpserver.LoadComponents()
+	logger, client, rdb, publisher := httpserver.LoadComponents()
 
 	defer func() {
 		logger.Info("Closing infrastructure connections...")
@@ -36,7 +36,7 @@ func main() {
 	reg := prometheus.NewRegistry()
 
 	userRepo := repository.NewUserRepository(client.DB, logger)
-	userService := service.NewUserService(userRepo, logger)
+	userService := service.NewUserService(userRepo, logger, publisher)
 
 	mapBusinessHandler := httpserver.MapBusinessRoutes(logger, rdb, userService)
 	mapManagementRoutes := httpserver.MapManagementRoutes(logger, client, reg)

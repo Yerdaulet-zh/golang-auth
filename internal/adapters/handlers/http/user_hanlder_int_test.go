@@ -40,7 +40,7 @@ func TestUserHandler_Register_Integration(t *testing.T) {
 
 	// Setup real layers with the global DB
 	repo := repository.NewUserRepository(globalDB, &testutil.NoopLogger{})
-	svc := service.NewUserService(repo, &testutil.NoopLogger{})
+	svc := service.NewUserService(repo, &testutil.NoopLogger{}, &testutil.NoPublisher{})
 	handler := NewUserHandler(svc, &testutil.NoopLogger{})
 
 	t.Run("Integration: Successful Registration and Duplicate Check", func(t *testing.T) {

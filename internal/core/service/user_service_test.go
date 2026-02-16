@@ -6,16 +6,20 @@ import (
 	"testing"
 
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
+	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
 	"github.com/golang-auth/internal/testutil"
+	"github.com/google/uuid"
 )
 
 // Mock Implementation
 type mockUserRepo struct {
-	getUserByEmailFn func(ctx context.Context, email string) (*repouser.User, error)
-	createUserFn     func(ctx context.Context, req ports.UserAndCredentialsRequest) error
-	verifyUserEmail  func(ctx context.Context, token string) error
+	getUserByEmailFn       func(ctx context.Context, email string) (*repouser.User, error)
+	createUserFn           func(ctx context.Context, req ports.UserAndCredentialsRequest) error
+	verifyUserEmail        func(ctx context.Context, token string) error
+	getVerificationByToken func(ctx context.Context, token string) (*userverification.UserVerification, error)
+	confirmVerification    func(ctx context.Context, userID uuid.UUID, verificationID uuid.UUID) error
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -28,6 +32,14 @@ func (m *mockUserRepo) CreateUserWithCredentials(ctx context.Context, req ports.
 
 func (m *mockUserRepo) VerifyUserEmail(ctx context.Context, token string) error {
 	return m.verifyUserEmail(ctx, token)
+}
+
+func (m *mockUserRepo) ConfirmVerification(ctx context.Context, userID uuid.UUID, verificationID uuid.UUID) error {
+	return m.confirmVerification(ctx, userID, verificationID)
+}
+
+func (m *mockUserRepo) GetVerificationByToken(ctx context.Context, token string) (*userverification.UserVerification, error) {
+	return m.getVerificationByToken(ctx, token)
 }
 
 func TestUserService_Register(t *testing.T) {
@@ -127,7 +139,7 @@ func TestUserService_Register(t *testing.T) {
 				tt.setupMock(mockRepo)
 			}
 
-			svc := NewUserService(mockRepo, &testutil.NoopLogger{})
+			svc := NewUserService(mockRepo, &testutil.NoopLogger{}, &testutil.NoPublisher{})
 
 			// Execute
 			err := svc.Register(context.Background(), tt.email, tt.password)

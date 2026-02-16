@@ -105,6 +105,8 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusInternalServerError, "")
 	case errors.Is(err, domain.ErrInvalidTokenState):
 		h.writeJSONError(w, http.StatusInternalServerError, "")
+	case errors.Is(err, domain.ErrBrokerInternalError):
+		h.writeJSONError(w, http.StatusInternalServerError, "")
 
 	// 400 Bad Request Errors
 	case errors.Is(err, domain.ErrInvalidEmail):

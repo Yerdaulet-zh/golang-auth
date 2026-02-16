@@ -9,6 +9,8 @@ import (
 	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 )
 
@@ -56,6 +58,23 @@ func (repo *UserRepository) CreateUserWithCredentials(ctx context.Context, req p
 			repo.logger.Error("Repository", "Error while insert into user_credentials table", "error", err)
 			return domain.ErrDatabaseInternalError
 		}
+
+		// User Token verification
+		repoVerify := userverification.UserVerification{
+			UserID:    repoUser.ID,
+			Token:     req.EmailVerificationToken,
+			ExpiresAt: req.TokenExpiration,
+		}
+		if err := gorm.G[userverification.UserVerification](tx).Create(ctx, &repoVerify); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				repo.logger.Warn("Repository", "Token collision detected, retrying...", "token", repoVerify.Token)
+				return domain.ErrTokenCollision
+			}
+
+			repo.logger.Error("Repository", "Failed to create verification record", "error", err)
+			return domain.ErrDatabaseInternalError
+		}
 		return nil
 	}); err != nil {
 		repo.logger.Error("Repository", "Error from transaction | CreateUSerWithCredentials", "error", err)
@@ -68,7 +87,7 @@ func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) e
 	record, err := gorm.G[userverification.UserVerification](repo.db).Where("token = ?", token).Take(ctx)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ErrTokenNotFound
+			return domain.ErrTokenNotFound
 		}
 		repo.logger.Error(
 			"Repository", "Error while querying user email verification token from the user_verification table", "error", err, "token", token,
@@ -82,15 +101,15 @@ func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) e
 	}
 
 	if time.Now().After(record.ExpiresAt) {
-		return ErrTokenExpired
+		return domain.ErrTokenExpired
 	}
 
 	if record.Status != "pending" {
-		return ErrInvalidTokenState
+		return domain.ErrInvalidTokenState
 	}
 
 	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		_, err := gorm.G[userverification.UserVerification](tx).Where("id = ?", record.ID).Update(ctx, "status", "active")
+		_, err := gorm.G[userverification.UserVerification](tx).Where("id = ?", record.ID).Update(ctx, "status", "consumed")
 		if err != nil {
 			repo.logger.Error("Repository", "Failed to update verification status to active", "error", err, "token", token)
 			return domain.ErrDatabaseInternalError
@@ -99,6 +118,31 @@ func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) e
 		if err != nil {
 			repo.logger.Error("Repository", "Failed to update user status from user table to active", "error", err, "user_id", record.UserID)
 			return domain.ErrDomainInternalError
+		}
+		return nil
+	})
+}
+
+func (repo *UserRepository) GetVerificationByToken(ctx context.Context, token string) (*userverification.UserVerification, error) {
+	record, err := gorm.G[userverification.UserVerification](repo.db).Where("token = ?", token).Take(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrTokenNotFound
+		}
+		return nil, domain.ErrDatabaseInternalError
+	}
+	return &record, nil
+}
+
+func (repo *UserRepository) ConfirmVerification(ctx context.Context, userID uuid.UUID, verificationID uuid.UUID) error {
+	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Update Token to consumed
+		if err := tx.Model(&userverification.UserVerification{}).Where("id = ?", verificationID).Update("status", "consumed").Error; err != nil {
+			return domain.ErrDatabaseInternalError
+		}
+		// Update User to active
+		if err := tx.Model(&repouser.User{}).Where("id = ?", userID).Update("user_status", "active").Error; err != nil {
+			return domain.ErrDatabaseInternalError
 		}
 		return nil
 	})

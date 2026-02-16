@@ -1,3 +1,8 @@
+aws:
+  region: "us-east-1"
+  sqs:
+    queue_url: "https://sqs.us-east-1.amazonaws.com/123456789/my-queue"
+
 http:
   business_addr: ":8080"
   management_addr: ":2112"
