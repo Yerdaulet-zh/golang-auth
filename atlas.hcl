@@ -15,6 +15,9 @@ data "composite_schema" "app" {
     url = "file://internal/adapters/repository/postgre/migrations/20260213042713.sql"
   }
   schema "public" {
+    url = "file://internal/adapters/repository/postgre/migrations/20260216074136.sql"
+  }
+  schema "public" {
     url = data.external_schema.gorm.url
   }
 }

@@ -3,6 +3,7 @@ module github.com/golang-auth
 go 1.25.0
 
 require (
+	ariga.io/atlas-go-sdk v0.7.2
 	github.com/lib/pq v1.11.2
 	github.com/spf13/viper v1.21.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
@@ -11,7 +12,6 @@ require (
 
 require (
 	ariga.io/atlas v0.36.2-0.20250806044935-5bb51a0a956e // indirect
-	ariga.io/atlas-go-sdk v0.7.2 // indirect
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.121.6 // indirect
 	cloud.google.com/go/auth v0.16.4 // indirect
