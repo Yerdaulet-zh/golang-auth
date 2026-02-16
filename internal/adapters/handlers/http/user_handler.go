@@ -103,10 +103,16 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusInternalServerError, "")
 	case errors.Is(err, domain.ErrDomainInternalError):
 		h.writeJSONError(w, http.StatusInternalServerError, "")
+	case errors.Is(err, domain.ErrInvalidTokenState):
+		h.writeJSONError(w, http.StatusInternalServerError, "")
 
 	// 400 Bad Request Errors
 	case errors.Is(err, domain.ErrInvalidEmail):
 		h.writeJSONError(w, http.StatusBadRequest, "Invalid Email")
+	case errors.Is(err, domain.ErrTokenExpired):
+		h.writeJSONError(w, http.StatusBadRequest, "")
+	case errors.Is(err, domain.ErrTokenNotFound):
+		h.writeJSONError(w, http.StatusInternalServerError, "")
 
 	// 500 Internal Server Error (The Default)
 	default:

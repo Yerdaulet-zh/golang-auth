@@ -64,12 +64,6 @@ func (repo *UserRepository) CreateUserWithCredentials(ctx context.Context, req p
 	return nil
 }
 
-var (
-	ErrTokenNotFound     = errors.New("User verification token is not found, invalid token")
-	ErrTokenExpired      = errors.New("Token is expired")
-	ErrInvalidTokenState = errors.New("Invalid token")
-)
-
 func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) error {
 	record, err := gorm.G[userverification.UserVerification](repo.db).Where("token = ?", token).Take(ctx)
 	if err != nil {
