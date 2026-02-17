@@ -26,6 +26,7 @@ func NewUserService(repo ports.UserRepoPorts, logger ports.Logger, publisher por
 		publisher: publisher,
 	}
 }
+
 func (s *UserSerivce) Register(ctx context.Context, email, password string) error {
 	email = strings.ToLower(strings.TrimSpace(email))
 
@@ -109,9 +110,12 @@ func (s *UserSerivce) VerifyUserEmail(ctx context.Context, token string) error {
 	}
 	if record.Status == "consumed" {
 		s.logger.Info("Service", "Token already used", "token", token)
-		return nil
+		return domain.ErrUsedToken
 	}
 	if time.Now().After(record.ExpiresAt) {
+		if err := s.repo.UpdateUserVerificationTokenStatus(ctx, record.ID, "expired"); err != nil {
+			return domain.ErrRepositoryInternalError
+		}
 		return domain.ErrTokenExpired
 	}
 	if record.Status != "pending" {

@@ -204,3 +204,12 @@ func (repo *UserRepository) GetCountsOfVerificationRecordsByUserID(ctx context.C
 	}
 	return count, nil
 }
+
+func (repo *UserRepository) UpdateUserVerificationTokenStatus(ctx context.Context, tokenID uuid.UUID, status string) error {
+	_, err := gorm.G[userverification.UserVerification](repo.db).Where("id = ?", tokenID).Update(ctx, "status", status)
+	if err != nil {
+		repo.logger.Debug(domain.LogRepository, "Error while updating the session status", "error", err, "token", tokenID)
+		return domain.ErrRepositoryInternalError
+	}
+	return nil
+}

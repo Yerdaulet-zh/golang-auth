@@ -17,4 +17,5 @@ type UserRepoPorts interface {
 	GetVerificationByUserID(ctx context.Context, userID uuid.UUID) (*userverification.UserVerification, error)
 	RotateVerificationToken(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error
 	GetCountsOfVerificationRecordsByUserID(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error)
+	UpdateUserVerificationTokenStatus(ctx context.Context, tokenID uuid.UUID, status string) error
 }

@@ -24,6 +24,7 @@ type mockUserRepo struct {
 	getVerificationByUserID                func(ctx context.Context, userID uuid.UUID) (*userverification.UserVerification, error)
 	rotateVerificationToken                func(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error
 	getCountsOfVerificationRecordsByUserID func(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error)
+	updateUserVerificationTokenStatus      func(ctx context.Context, tokenID uuid.UUID, status string) error
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -56,6 +57,10 @@ func (m *mockUserRepo) RotateVerificationToken(ctx context.Context, recordID uui
 
 func (m *mockUserRepo) GetCountsOfVerificationRecordsByUserID(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error) {
 	return m.getCountsOfVerificationRecordsByUserID(ctx, user_id, timeDuration)
+}
+
+func (m *mockUserRepo) UpdateUserVerificationTokenStatus(ctx context.Context, tokenID uuid.UUID, status string) error {
+	return m.updateUserVerificationTokenStatus(ctx, tokenID, status)
 }
 
 func TestUserService_Register(t *testing.T) {

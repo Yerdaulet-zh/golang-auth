@@ -12,6 +12,7 @@ var (
 	ErrHashingError            = errors.New("Error while hashing a password")
 	ErrInvalidEmail            = errors.New("Invalid Email")
 	ErrDomainInternalError     = errors.New("Domain Internal error")
+	ErrUsedToken               = errors.New("The token already consumed")
 
 	// Repository
 	ErrUserAlreadyExists     = errors.New("There is no user with such email")

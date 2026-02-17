@@ -118,41 +118,43 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 	switch {
 	// 409 Conflict
 	case errors.Is(err, domain.ErrUserAlreadyExists):
-		h.writeJSONError(w, http.StatusConflict, "User already registered")
+		h.writeJSONError(w, http.StatusConflict, domain.ErrUserAlreadyExists.Error())
 	case errors.Is(err, domain.ErrUserAlreadyVerified):
-		h.writeJSONError(w, http.StatusConflict, "")
+		h.writeJSONError(w, http.StatusConflict, domain.ErrUserAlreadyVerified.Error())
 
 	// 404 Not Found
 	case errors.Is(err, domain.ErrNotFound):
-		h.writeJSONError(w, http.StatusNotFound, "Resource not found")
+		h.writeJSONError(w, http.StatusNotFound, domain.ErrNotFound.Error())
 
 	// 500 Internal Server Errors
 	case errors.Is(err, domain.ErrDatabaseInternalError):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrDatabaseInternalError.Error())
 	case errors.Is(err, domain.ErrRepositoryInternalError):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrRepositoryInternalError.Error())
 	case errors.Is(err, domain.ErrHashingError):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrHashingError.Error())
 	case errors.Is(err, domain.ErrDomainInternalError):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrDomainInternalError.Error())
 	case errors.Is(err, domain.ErrInvalidTokenState):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrInvalidTokenState.Error())
 	case errors.Is(err, domain.ErrBrokerInternalError):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrBrokerInternalError.Error())
 
 	// 400 Bad Request Errors
 	case errors.Is(err, domain.ErrInvalidEmail):
-		h.writeJSONError(w, http.StatusBadRequest, "Invalid Email")
+		h.writeJSONError(w, http.StatusBadRequest, domain.ErrInvalidEmail.Error())
 	case errors.Is(err, domain.ErrTokenExpired):
-		h.writeJSONError(w, http.StatusBadRequest, "")
+		h.writeJSONError(w, http.StatusBadRequest, domain.ErrTokenExpired.Error())
 	case errors.Is(err, domain.ErrTokenNotFound):
-		h.writeJSONError(w, http.StatusInternalServerError, "")
+		h.writeJSONError(w, http.StatusInternalServerError, domain.ErrTokenNotFound.Error())
 	case errors.Is(err, domain.ErrUserNotFound):
-		h.writeJSONError(w, http.StatusBadRequest, "")
+		h.writeJSONError(w, http.StatusBadRequest, domain.ErrUserNotFound.Error())
+	case errors.Is(err, domain.ErrUsedToken):
+		h.writeJSONError(w, http.StatusBadRequest, domain.ErrUsedToken.Error())
 
 	// 429
 	case errors.Is(err, domain.ErrTooManyRequests):
-		h.writeJSONError(w, http.StatusTooManyRequests, "")
+		h.writeJSONError(w, http.StatusTooManyRequests, domain.ErrTooManyRequests.Error())
 
 	// 500 Internal Server Error (The Default)
 	default:
