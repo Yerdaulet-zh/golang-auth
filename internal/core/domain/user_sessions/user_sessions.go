@@ -10,6 +10,7 @@ import (
 type UserSessions struct {
 	ID         uuid.UUID
 	UserID     uuid.UUID
+	Token      string
 	IPAddress  string
 	UserAgent  string
 	Device     string

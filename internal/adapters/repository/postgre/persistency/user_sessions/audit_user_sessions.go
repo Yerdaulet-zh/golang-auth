@@ -25,7 +25,6 @@ type AuditUserSessions struct {
 	SessionID uuid.UUID `gorm:"type:uuid;not null"`
 	UserID    uuid.UUID `gorm:"type:uuid;not null"`
 	EventType string    `gorm:"type:audit_event_type;not null"`
-	OldValue  *string   `gorm:"type:text"`
 	NewValue  *string   `gorm:"type:text"`
 	CreatedAt time.Time `gorm:"type:timestamptz;default:now();not null"`
 
@@ -33,11 +32,6 @@ type AuditUserSessions struct {
 }
 
 func MapAuditToDomain(orm AuditUserSessions) domainusersessions.AuditUserSessions {
-	oldVal := ""
-	if orm.OldValue != nil {
-		oldVal = *orm.OldValue
-	}
-
 	newVal := ""
 	if orm.NewValue != nil {
 		newVal = *orm.NewValue
@@ -48,19 +42,12 @@ func MapAuditToDomain(orm AuditUserSessions) domainusersessions.AuditUserSession
 		SessionID: orm.SessionID,
 		UserID:    orm.UserID,
 		EventType: orm.EventType,
-		OldValue:  oldVal,
 		NewValue:  newVal,
 		CreatedAt: orm.CreatedAt,
 	}
 }
 
 func MapAuditToORM(d domainusersessions.AuditUserSessions) AuditUserSessions {
-	// In Audit logs, we often want to store empty strings as NULL in DB
-	var oldPtr *string
-	if d.OldValue != "" {
-		oldPtr = &d.OldValue
-	}
-
 	var newPtr *string
 	if d.NewValue != "" {
 		newPtr = &d.NewValue
@@ -71,7 +58,6 @@ func MapAuditToORM(d domainusersessions.AuditUserSessions) AuditUserSessions {
 		SessionID: d.SessionID,
 		UserID:    d.UserID,
 		EventType: d.EventType,
-		OldValue:  oldPtr,
 		NewValue:  newPtr,
 		CreatedAt: d.CreatedAt,
 	}

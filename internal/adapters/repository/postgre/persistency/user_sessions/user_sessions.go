@@ -11,6 +11,7 @@ import (
 type UserSessions struct {
 	ID         uuid.UUID `gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null"`
+	Token      string    `gorm:"type:varchar(255);not null"`
 	IPAddress  string    `gorm:"type:inet;not null"`
 	UserAgent  string    `gorm:"type:text;not null"`
 	Device     *string   `gorm:"type:text"`
@@ -30,6 +31,7 @@ func MapSessionToDomain(orm UserSessions) domain_sessions.UserSessions {
 	return domain_sessions.UserSessions{
 		ID:         orm.ID,
 		UserID:     orm.UserID,
+		Token:      orm.Token,
 		IPAddress:  orm.IPAddress,
 		UserAgent:  orm.UserAgent,
 		Device:     device,
