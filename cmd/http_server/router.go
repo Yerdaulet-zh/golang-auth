@@ -33,7 +33,7 @@ func MapBusinessRoutes(
 	userHandler := http_hanlder.NewUserHandler(userService, logger)
 	mux.HandleFunc("POST /v1/register", userHandler.Register)
 	mux.HandleFunc("GET /v1/register/verify", userHandler.VerifyUserEmail)
-	// mux.HandleFunc("POST /v1/login", userHandler.Login)
+	mux.HandleFunc("POST /v1/register/resend-verification-token", userHandler.ResendVerificationToken)
 
 	middlewares := []Middleware{
 		middleware.LoggingMiddleware(logger),                   // 3. Log everything (including blocks)

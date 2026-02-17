@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
 	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
@@ -15,11 +16,14 @@ import (
 
 // Mock Implementation
 type mockUserRepo struct {
-	getUserByEmailFn       func(ctx context.Context, email string) (*repouser.User, error)
-	createUserFn           func(ctx context.Context, req ports.UserAndCredentialsRequest) error
-	verifyUserEmail        func(ctx context.Context, token string) error
-	getVerificationByToken func(ctx context.Context, token string) (*userverification.UserVerification, error)
-	confirmVerification    func(ctx context.Context, userID uuid.UUID, verificationID uuid.UUID) error
+	getUserByEmailFn                       func(ctx context.Context, email string) (*repouser.User, error)
+	createUserFn                           func(ctx context.Context, req ports.UserAndCredentialsRequest) error
+	verifyUserEmail                        func(ctx context.Context, token string) error
+	getVerificationByToken                 func(ctx context.Context, token string) (*userverification.UserVerification, error)
+	confirmVerification                    func(ctx context.Context, userID uuid.UUID, verificationID uuid.UUID) error
+	getVerificationByUserID                func(ctx context.Context, userID uuid.UUID) (*userverification.UserVerification, error)
+	rotateVerificationToken                func(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error
+	getCountsOfVerificationRecordsByUserID func(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error)
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -40,6 +44,18 @@ func (m *mockUserRepo) ConfirmVerification(ctx context.Context, userID uuid.UUID
 
 func (m *mockUserRepo) GetVerificationByToken(ctx context.Context, token string) (*userverification.UserVerification, error) {
 	return m.getVerificationByToken(ctx, token)
+}
+
+func (m *mockUserRepo) GetVerificationByUserID(ctx context.Context, userID uuid.UUID) (*userverification.UserVerification, error) {
+	return m.getVerificationByUserID(ctx, userID)
+}
+
+func (m *mockUserRepo) RotateVerificationToken(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error {
+	return m.rotateVerificationToken(ctx, recordID, status, req)
+}
+
+func (m *mockUserRepo) GetCountsOfVerificationRecordsByUserID(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error) {
+	return m.getCountsOfVerificationRecordsByUserID(ctx, user_id, timeDuration)
 }
 
 func TestUserService_Register(t *testing.T) {

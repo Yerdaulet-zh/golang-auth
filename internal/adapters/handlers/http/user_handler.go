@@ -76,6 +76,36 @@ func (h *UserHandler) VerifyUserEmail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *UserHandler) ResendVerificationToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	var req ResendVerificationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeJSONError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	if err := validate.Struct(req); err != nil {
+		h.writeJSONError(w, http.StatusBadRequest, "Valid email is required")
+		return
+	}
+
+	ctx := r.Context()
+	if err := h.userService.ResendEmailVerificationToken(ctx, req.Email); err != nil {
+		h.mapErrorToResponse(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "If the account exists and is unverified, a new verification email has been sent.",
+	})
+}
+
 func (h *UserHandler) writeJSONError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -89,6 +119,8 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 	// 409 Conflict
 	case errors.Is(err, domain.ErrUserAlreadyExists):
 		h.writeJSONError(w, http.StatusConflict, "User already registered")
+	case errors.Is(err, domain.ErrUserAlreadyVerified):
+		h.writeJSONError(w, http.StatusConflict, "")
 
 	// 404 Not Found
 	case errors.Is(err, domain.ErrNotFound):
@@ -115,10 +147,15 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusBadRequest, "")
 	case errors.Is(err, domain.ErrTokenNotFound):
 		h.writeJSONError(w, http.StatusInternalServerError, "")
+	case errors.Is(err, domain.ErrUserNotFound):
+		h.writeJSONError(w, http.StatusBadRequest, "")
+
+	// 429
+	case errors.Is(err, domain.ErrTooManyRequests):
+		h.writeJSONError(w, http.StatusTooManyRequests, "")
 
 	// 500 Internal Server Error (The Default)
 	default:
-		// We log the real error here for debugging
 		h.logger.Error("Unhandled error", "error", err)
 		h.writeJSONError(w, http.StatusInternalServerError, "Internal server error")
 	}

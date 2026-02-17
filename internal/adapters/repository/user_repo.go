@@ -92,7 +92,7 @@ func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) e
 		repo.logger.Error(
 			"Repository", "Error while querying user email verification token from the user_verification table", "error", err, "token", token,
 		)
-		return domain.ErrDatabaseInternalError
+		return domain.ErrRepositoryInternalError
 	}
 
 	if record.Status == "active" {
@@ -112,12 +112,12 @@ func (repo *UserRepository) VerifyUserEmail(ctx context.Context, token string) e
 		_, err := gorm.G[userverification.UserVerification](tx).Where("id = ?", record.ID).Update(ctx, "status", "consumed")
 		if err != nil {
 			repo.logger.Error("Repository", "Failed to update verification status to active", "error", err, "token", token)
-			return domain.ErrDatabaseInternalError
+			return domain.ErrRepositoryInternalError
 		}
 		_, err = gorm.G[repouser.User](tx).Where("id = ?", record.UserID).Update(ctx, "user_status", "active")
 		if err != nil {
 			repo.logger.Error("Repository", "Failed to update user status from user table to active", "error", err, "user_id", record.UserID)
-			return domain.ErrDomainInternalError
+			return domain.ErrRepositoryInternalError
 		}
 		return nil
 	})
@@ -129,7 +129,7 @@ func (repo *UserRepository) GetVerificationByToken(ctx context.Context, token st
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.ErrTokenNotFound
 		}
-		return nil, domain.ErrDatabaseInternalError
+		return nil, domain.ErrRepositoryInternalError
 	}
 	return &record, nil
 }
@@ -138,12 +138,69 @@ func (repo *UserRepository) ConfirmVerification(ctx context.Context, userID uuid
 	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Update Token to consumed
 		if err := tx.Model(&userverification.UserVerification{}).Where("id = ?", verificationID).Update("status", "consumed").Error; err != nil {
-			return domain.ErrDatabaseInternalError
+			return domain.ErrRepositoryInternalError
 		}
 		// Update User to active
 		if err := tx.Model(&repouser.User{}).Where("id = ?", userID).Update("user_status", "active").Error; err != nil {
-			return domain.ErrDatabaseInternalError
+			return domain.ErrRepositoryInternalError
 		}
 		return nil
 	})
+}
+
+func (repo *UserRepository) GetVerificationByUserID(ctx context.Context, userID uuid.UUID) (*userverification.UserVerification, error) {
+	record, err := gorm.G[userverification.UserVerification](repo.db).Where("user_id = ?", userID).Order("created_at DESC").Take(ctx)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			repo.logger.Error(domain.LogRepository, "Error for resend verification not found existing token record by user_id", "error", err, "user_id", userID)
+			return nil, domain.ErrRepositoryInternalError
+		}
+		repo.logger.Error(domain.LogRepository, "Unexpected error whike queryng the last token record by user_id", "error", err, "user_id", userID)
+		return nil, domain.ErrDatabaseInternalError
+	}
+	return &record, nil
+}
+
+// Bug the old ones are becoming in pedning state: p, i, p, p should be p, i, i, i
+func (repo *UserRepository) RotateVerificationToken(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error {
+	if err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		_, err := gorm.G[userverification.UserVerification](repo.db).Where("ID = ?", recordID).Update(ctx, "status", status)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				repo.logger.Error(domain.LogRepository, "Error not found user email validation record by id", "error", err, "ID", recordID)
+				return domain.ErrRepositoryInternalError
+			}
+			repo.logger.Error(domain.LogRepository, "Unexpected error while updating the email validation record by id", "error", err, "ID", recordID)
+			return domain.ErrDatabaseInternalError
+		}
+
+		if err := gorm.G[userverification.UserVerification](tx).Create(ctx, req); err != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				repo.logger.Warn(domain.LogRepository, "Token collision detected, retrying...", "token", req.Token)
+				return domain.ErrTokenCollision
+			}
+
+			repo.logger.Error(domain.LogRepository, "Failed to create verification record", "error", err)
+			return domain.ErrDatabaseInternalError
+		}
+
+		return nil
+	}); err != nil {
+		return domain.ErrDatabaseInternalError
+	}
+	return nil
+}
+
+func (repo *UserRepository) GetCountsOfVerificationRecordsByUserID(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error) {
+	count, err := gorm.G[userverification.UserVerification](repo.db).Where("user_id = ? AND created_at >= ?", user_id, timeDuration).Count(ctx, "ID")
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			repo.logger.Error(domain.LogRepository, "Error not found user verification records", "error", err, "ID", user_id)
+			return 0, domain.ErrRepositoryInternalError
+		}
+		repo.logger.Error(domain.LogRepository, "Unexpected error not found user verification records", "error", err, "ID", user_id)
+		return 0, domain.ErrDatabaseInternalError
+	}
+	return count, nil
 }

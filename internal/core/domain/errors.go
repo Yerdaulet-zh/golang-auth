@@ -3,6 +3,9 @@ package domain
 import "errors"
 
 var (
+	// General
+	ErrTooManyRequests = errors.New("Too many requests")
+
 	// Domain
 	ErrRepositoryInternalError = errors.New("Error while executing GetUserByEmail")
 	ErrUserByEmailExists       = errors.New("User by such email is already exists")
@@ -21,4 +24,6 @@ var (
 	ErrTokenExpired        = errors.New("Token is expired")
 	ErrInvalidTokenState   = errors.New("Invalid token")
 	ErrBrokerInternalError = errors.New("Borker Internal Error")
+	ErrUserNotFound        = errors.New("User is not registered")
+	ErrUserAlreadyVerified = errors.New("Email already verified/consumed")
 )

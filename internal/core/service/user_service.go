@@ -6,8 +6,11 @@ import (
 	"strings"
 	"time"
 
+	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type UserSerivce struct {
@@ -123,4 +126,69 @@ func (s *UserSerivce) VerifyUserEmail(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+func (s *UserSerivce) ResendEmailVerificationToken(ctx context.Context, email string) error {
+	email = strings.ToLower(strings.TrimSpace(email))
+
+	// Fetch User
+	userRecord, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.ErrUserNotFound
+		}
+		s.logger.Error(domain.LogService, "Error getting user", "error", err, "email", email)
+		return domain.ErrDatabaseInternalError
+	}
+
+	// Fetch Latest Verification Record
+	verRecord, err := s.repo.GetVerificationByUserID(ctx, userRecord.ID)
+	if err != nil { // && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Rate Limit Checks
+	if verRecord != nil {
+		// Strict 60s cooldown
+		if time.Since(verRecord.CreatedAt) < 60*time.Second {
+			return domain.ErrTooManyRequests
+		}
+
+		if verRecord.Status == "consumed" {
+			return domain.ErrUserAlreadyVerified
+		}
+	}
+
+	// Hourly Limit Check (Max 3 per hour)
+	oneHourAgo := time.Now().Add(-1 * time.Hour)
+	count, err := s.repo.GetCountsOfVerificationRecordsByUserID(ctx, userRecord.ID, oneHourAgo)
+	if err != nil {
+		return err
+	}
+	if count >= 3 {
+		return domain.ErrTooManyRequests
+	}
+
+	// Prepare New Token
+	token, err := GenerateSecureToken()
+	if err != nil {
+		s.logger.Error(domain.LogService, "Error while generating new verification token", "error", err, "user_id", verRecord.UserID)
+		return domain.ErrDomainInternalError
+	}
+
+	newVer := userverification.UserVerification{
+		UserID:    userRecord.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(15 * time.Minute),
+		Status:    "pending",
+	}
+
+	// Transactional Update
+	// Pass verRecord.ID if it exists to invalidate it; otherwise just create
+	var oldID *uuid.UUID
+	if verRecord != nil {
+		oldID = &verRecord.ID
+	}
+
+	return s.repo.RotateVerificationToken(ctx, *oldID, "invalidated", &newVer)
 }

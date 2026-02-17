@@ -14,8 +14,9 @@ import (
 
 // Mock Service
 type mockUserService struct {
-	registerFn      func(ctx context.Context, email, password string) error
-	verifyUserEmail func(ctx context.Context, token string) error
+	registerFn                   func(ctx context.Context, email, password string) error
+	verifyUserEmail              func(ctx context.Context, token string) error
+	resendEmailVerificationToken func(ctx context.Context, email string) error
 }
 
 func (m *mockUserService) Register(ctx context.Context, email, password string) error {
@@ -24,6 +25,10 @@ func (m *mockUserService) Register(ctx context.Context, email, password string) 
 
 func (m *mockUserService) VerifyUserEmail(ctx context.Context, token string) error {
 	return m.verifyUserEmail(ctx, token)
+}
+
+func (m *mockUserService) ResendEmailVerificationToken(ctx context.Context, email string) error {
+	return m.resendEmailVerificationToken(ctx, email)
 }
 
 func TestUserHandler_Register_Unit(t *testing.T) {

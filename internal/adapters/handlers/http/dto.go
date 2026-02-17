@@ -14,3 +14,7 @@ type CreateUserResponse struct {
 	JWTToken     string
 	JTI          uuid.UUID
 }
+
+type ResendVerificationRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
