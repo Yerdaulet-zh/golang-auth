@@ -24,4 +24,5 @@ type UserRepoPorts interface {
 	GetUserSessionCountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 	CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
 	CreateUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
+	DeleteUserSession(ctx context.Context, session_id uuid.UUID) error
 }

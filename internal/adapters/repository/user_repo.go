@@ -310,3 +310,38 @@ func (repo *UserRepository) CreateUserSession(ctx context.Context, sessionReq *p
 		LastActive: newSession.LastActive,
 	}, nil
 }
+
+// func (repo *UserRepository) DeleteUserSession(ctx context.Context, session_id uuid.UUID) error {
+// 	_, err := gorm.G[repousersessions.UserSessions](repo.db).Where("id = ?", session_id).Delete(ctx)
+// 	if err != nil {
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			repo.logger.Debug(domain.LogRepository, "Error while deletion if user session", "error", err)
+// 			return domain.ErrRepositoryInternalError
+// 		}
+// 		repo.logger.Error(domain.LogRepository, "Database error while deleting a session", "error", err)
+// 		return domain.ErrDatabaseInternalError
+// 	}
+// 	return nil
+// }
+
+func (repo *UserRepository) DeleteUserSession(ctx context.Context, session_id uuid.UUID) error {
+	// 1. Capture the result object from GORM
+	RowsAffected, err := gorm.G[repousersessions.UserSessions](repo.db).
+		Where("id = ?", session_id).
+		Delete(ctx)
+
+	// 2. Check for actual database/connection errors first
+	if err != nil {
+		repo.logger.Error(domain.LogRepository, "Database error while deleting a session", "error", err)
+		return domain.ErrDatabaseInternalError
+	}
+
+	// 3. Check if any rows were actually deleted
+	if RowsAffected == 0 {
+		repo.logger.Debug(domain.LogRepository, "No session found to delete", "session_id", session_id)
+		// Return your specific domain error for "Not Found"
+		return domain.ErrSessionNotFound
+	}
+
+	return nil
+}

@@ -28,6 +28,7 @@ type mockUserRepo struct {
 	getUserSessionCountByUserID            func(ctx context.Context, userID uuid.UUID) (int64, error)
 	createAndDeleteOldUserSession          func(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error)
 	createUserSession                      func(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error)
+	deleteUserSession                      func(ctx context.Context, session_id uuid.UUID) error
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -76,6 +77,10 @@ func (m *mockUserRepo) CreateAndDeleteOldUserSession(ctx context.Context, sessio
 
 func (m *mockUserRepo) CreateUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
 	return m.createUserSession(ctx, sessionReq)
+}
+
+func (m *mockUserRepo) DeleteUserSession(ctx context.Context, session_id uuid.UUID) error {
+	return m.deleteUserSession(ctx, session_id)
 }
 
 func TestUserService_Register(t *testing.T) {

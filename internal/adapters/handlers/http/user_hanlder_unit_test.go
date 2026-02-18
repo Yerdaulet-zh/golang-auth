@@ -11,6 +11,7 @@ import (
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
 	"github.com/golang-auth/internal/testutil"
+	"github.com/google/uuid"
 )
 
 // Mock Service
@@ -19,6 +20,7 @@ type mockUserService struct {
 	verifyUserEmail              func(ctx context.Context, token string) error
 	resendEmailVerificationToken func(ctx context.Context, email string) error
 	login                        func(ctx context.Context, req *ports.LoginRequest) (*ports.LoginResponse, error)
+	logout                       func(ctx context.Context, session_id uuid.UUID) error
 }
 
 func (m *mockUserService) Register(ctx context.Context, email, password string) error {
@@ -35,6 +37,10 @@ func (m *mockUserService) ResendEmailVerificationToken(ctx context.Context, emai
 
 func (m *mockUserService) Login(ctx context.Context, req *ports.LoginRequest) (*ports.LoginResponse, error) {
 	return m.login(ctx, req)
+}
+
+func (m *mockUserService) Logout(ctx context.Context, session_id uuid.UUID) error {
+	return m.logout(ctx, session_id)
 }
 
 func TestUserHandler_Register_Unit(t *testing.T) {

@@ -18,6 +18,7 @@ var (
 	ErrUserAccountBanned       = errors.New("User account banned")
 	ErrUserAccountSuspended    = errors.New("User account suspended")
 	ErrTooManyUserSessions     = errors.New("Too many user sessions")
+	ErrSessionNotFound         = errors.New("Session not found")
 
 	// Repository
 	ErrUserAlreadyExists     = errors.New("There is no user with such email")

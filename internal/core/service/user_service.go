@@ -272,3 +272,7 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 
 	return &response, nil
 }
+
+func (s *UserSerivce) Logout(ctx context.Context, session_id uuid.UUID) error {
+	return s.repo.DeleteUserSession(ctx, session_id)
+}
