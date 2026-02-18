@@ -12,4 +12,5 @@ type UserUseCase interface {
 	ResendEmailVerificationToken(ctx context.Context, email string) error
 	Login(ctx context.Context, req *LoginRequest) (*LoginResponse, error)
 	Logout(ctx context.Context, session_id uuid.UUID) error
+	DeleteAccount(ctx context.Context, user_id uuid.UUID) error
 }

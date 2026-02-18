@@ -25,4 +25,5 @@ type UserRepoPorts interface {
 	CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
 	CreateUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
 	DeleteUserSession(ctx context.Context, session_id uuid.UUID) error
+	DeleteUser(ctx context.Context, userID uuid.UUID) error
 }

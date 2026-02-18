@@ -37,6 +37,7 @@ func MapBusinessRoutes(
 
 	mux.HandleFunc("POST /v1/login", userHandler.Login)
 	mux.HandleFunc("POST /v1/logout", userHandler.Logout)
+	mux.HandleFunc("DELETE /v1/account/delete", userHandler.DeleteAccount)
 	middlewares := []Middleware{
 		middleware.LoggingMiddleware(logger),                   // 3. Log everything (including blocks)
 		middleware.IPRateLimiter(logger, rdb, 10, time.Minute), // 2. Then check limit

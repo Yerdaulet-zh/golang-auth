@@ -214,6 +214,42 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		"message": "Successfully logged out",
 	})
 }
+func (h *UserHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	// 1. Enforce DELETE method
+	if r.Method != http.MethodDelete {
+		h.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// 2. Decode UserID from JSON body as seen in your Postman setup
+	var req struct {
+		UserID uuid.UUID `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeJSONError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	ctx := r.Context()
+
+	// 3. Service call to perform a complete wipe of the user account
+	// This will clear user_sessions, user_credentials, and the user record
+	if err := h.userService.DeleteAccount(ctx, req.UserID); err != nil {
+		h.mapErrorToResponse(w, err)
+		return
+	}
+
+	// 4. Clear the browser/Postman cookies to ensure local state is reset
+	h.clearCookie(w, "SessionID", "/")
+	h.clearCookie(w, "access_token", "/")
+	h.clearCookie(w, "refresh_token", "/auth/refresh")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Account and all associated sessions have been successfully deleted",
+	})
+}
 
 // Helper to clear cookies
 func (h *UserHandler) clearCookie(w http.ResponseWriter, name, path string) {

@@ -345,3 +345,26 @@ func (repo *UserRepository) DeleteUserSession(ctx context.Context, session_id uu
 
 	return nil
 }
+
+func (repo *UserRepository) DeleteUser(ctx context.Context, userID uuid.UUID) error {
+	return repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Manually wipe all sessions for this user first
+		// This ensures they are logged out of all devices
+		if err := tx.Where("user_id = ?", userID).Delete(&repousersessions.UserSessions{}).Error; err != nil {
+			repo.logger.Error(domain.LogRepository, "Failed to clear sessions during user deletion", "user_id", userID, "error", err)
+			return domain.ErrDatabaseInternalError
+		}
+
+		// Delete the user record
+		result := tx.Where("id = ?", userID).Delete(&repouser.User{})
+		if result.Error != nil {
+			return result.Error
+		}
+
+		if result.RowsAffected == 0 {
+			return domain.ErrUserNotFound
+		}
+
+		return nil
+	})
+}
