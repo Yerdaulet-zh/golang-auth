@@ -14,6 +14,10 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=62"`
 }
 
+// type DeleteAccountRequest struct {
+// 	Email string `json:"email" validate:"required,email"`
+// }
+
 // type CreateUserResponse struct {
 // 	UserID       uuid.UUID
 // 	SessionID    uuid.UUID

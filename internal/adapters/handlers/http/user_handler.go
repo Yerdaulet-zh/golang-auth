@@ -133,6 +133,16 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
+		Name:     "UserID",
+		Value:    res.UserID.String(),
+		Expires:  res.RefreshTokenExpiresAt,
+		HttpOnly: true,
+		Secure:   false,
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	http.SetCookie(w, &http.Cookie{
 		Name:     "SessionID",
 		Value:    res.SessionID.String(),
 		Expires:  res.AccessTokenExpiresAt,
@@ -169,7 +179,6 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Login successful",
-		"user_id": res.UserID,
 	})
 }
 
@@ -179,21 +188,17 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 1. Extract the SessionID from the cookie
 	cookie, err := r.Cookie("SessionID")
 	if err != nil {
-		// If no cookie exists, they are technically already logged out
 		h.writeJSONError(w, http.StatusUnauthorized, "No active session found")
 		return
 	}
 	sessionID, err := uuid.Parse(cookie.Value)
 	if err != nil {
-		// This handles cases where the cookie might be tampered with or malformed
 		h.writeJSONError(w, http.StatusBadRequest, "Invalid session format")
 		return
 	}
 
-	// 2. Call Service to invalidate session in DB (Audit log: LOGOUT)
 	ctx := r.Context()
 	err = h.userService.Logout(ctx, sessionID)
 	if err != nil {
@@ -202,8 +207,7 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 3. Clear the cookies by setting MaxAge to -1
-	// You must match the Path and Domain used during Login
+	h.clearCookie(w, "UserID", "/")
 	h.clearCookie(w, "SessionID", "/")
 	h.clearCookie(w, "access_token", "/")
 	h.clearCookie(w, "refresh_token", "/auth/refresh")
@@ -214,32 +218,31 @@ func (h *UserHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		"message": "Successfully logged out",
 	})
 }
+
 func (h *UserHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	// 1. Enforce DELETE method
 	if r.Method != http.MethodDelete {
 		h.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// 2. Decode UserID from JSON body as seen in your Postman setup
-	var req struct {
-		UserID uuid.UUID `json:"user_id"`
+	cookieUserID, err := r.Cookie("UserID")
+	if err != nil {
+		h.writeJSONError(w, http.StatusUnauthorized, "No user ID found from cookie")
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.writeJSONError(w, http.StatusBadRequest, "Invalid request payload")
+	userID, err := uuid.Parse(cookieUserID.Value)
+	if err != nil {
+		h.writeJSONError(w, http.StatusBadRequest, "Invalid user id format")
 		return
 	}
 
 	ctx := r.Context()
-
-	// 3. Service call to perform a complete wipe of the user account
-	// This will clear user_sessions, user_credentials, and the user record
-	if err := h.userService.DeleteAccount(ctx, req.UserID); err != nil {
+	if err := h.userService.DeleteAccount(ctx, userID); err != nil {
 		h.mapErrorToResponse(w, err)
 		return
 	}
 
-	// 4. Clear the browser/Postman cookies to ensure local state is reset
+	h.clearCookie(w, "UserID", "/")
 	h.clearCookie(w, "SessionID", "/")
 	h.clearCookie(w, "access_token", "/")
 	h.clearCookie(w, "refresh_token", "/auth/refresh")
@@ -321,8 +324,8 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusBadRequest, domain.ErrUsedToken.Error())
 	case errors.Is(err, domain.ErrInvaidPassword):
 		h.writeJSONError(w, http.StatusBadRequest, domain.ErrInvaidPassword.Error())
-	case errors.Is(err, domain.ErrSessionNotFound):
-		h.writeJSONError(w, http.StatusBadRequest, domain.ErrSessionNotFound.Error())
+	// case errors.Is(err, domain.ErrSessionNotFound):
+	// 	h.writeJSONError(w, http.StatusBadRequest, domain.ErrSessionNotFound.Error())
 
 	// 429
 	case errors.Is(err, domain.ErrTooManyRequests):

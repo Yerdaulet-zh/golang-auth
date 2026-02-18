@@ -222,6 +222,12 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 	case userRecord.UserStatus == "suspended":
 		return nil, domain.ErrUserAccountSuspended
 	}
+
+	// Lazy delete user dead sessions.
+	if err := s.repo.DeleteUserDeadSessions(ctx, userRecord.ID); err != nil {
+		return nil, err
+	}
+
 	sessoinCount, err := s.repo.GetUserSessionCountByUserID(ctx, userRecord.ID)
 	if err != nil {
 		return nil, err
@@ -254,6 +260,7 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 	if sessoinCount == 5 {
 		return nil, domain.ErrTooManyUserSessions
 	} else {
+		sessionReq.Token = HashToken(sessionReq.Token)
 		newSession, err = s.repo.CreateUserSession(ctx, &sessionReq)
 		if err != nil {
 			return nil, err
