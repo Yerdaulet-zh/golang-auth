@@ -184,6 +184,8 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusForbidden, domain.ErrUserAccountBanned.Error())
 	case errors.Is(err, domain.ErrUserAccountSuspended):
 		h.writeJSONError(w, http.StatusForbidden, domain.ErrUserAccountSuspended.Error())
+	case errors.Is(err, domain.ErrTooManyUserSessions):
+		h.writeJSONError(w, http.StatusForbidden, domain.ErrTooManyUserSessions.Error())
 
 	// 404 Not Found
 	case errors.Is(err, domain.ErrNotFound):

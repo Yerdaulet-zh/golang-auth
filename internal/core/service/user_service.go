@@ -144,6 +144,9 @@ func (s *UserSerivce) ResendEmailVerificationToken(ctx context.Context, email st
 		s.logger.Error(domain.LogService, "Error getting user", "error", err, "email", email)
 		return domain.ErrDatabaseInternalError
 	}
+	if userRecord.UserStatus == "active" {
+		return domain.ErrUserAlreadyVerified
+	}
 
 	// Fetch Latest Verification Record
 	verRecord, err := s.repo.GetVerificationByUserID(ctx, userRecord.ID)
@@ -249,10 +252,7 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 	}
 
 	if sessoinCount == 5 {
-		newSession, err = s.repo.CreateAndDeleteOldUserSession(ctx, &sessionReq)
-		if err != nil {
-			return nil, err
-		}
+		return nil, domain.ErrTooManyUserSessions
 	} else {
 		newSession, err = s.repo.CreateUserSession(ctx, &sessionReq)
 		if err != nil {

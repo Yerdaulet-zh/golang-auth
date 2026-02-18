@@ -17,6 +17,7 @@ var (
 	ErrUserNotVerified         = errors.New("User accoutn is not verified")
 	ErrUserAccountBanned       = errors.New("User account banned")
 	ErrUserAccountSuspended    = errors.New("User account suspended")
+	ErrTooManyUserSessions     = errors.New("Too many user sessions")
 
 	// Repository
 	ErrUserAlreadyExists     = errors.New("There is no user with such email")

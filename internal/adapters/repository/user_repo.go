@@ -237,31 +237,44 @@ func (repo *UserRepository) GetUserSessionCountByUserID(ctx context.Context, use
 }
 
 func (repo *UserRepository) CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
-	newSession := repousersessions.UserSessions{
-		UserID:    sessionReq.UserID,
-		IPAddress: sessionReq.IPAddress,
-		UserAgent: sessionReq.UserAgent,
-		Device:    &sessionReq.Device,
-		Token:     sessionReq.Token,
-		ExpiresAt: sessionReq.ExpiresAt,
-	}
-	if err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		_, err := gorm.G[repousersessions.UserSessions](repo.db).Where("user_id = ?", sessionReq.UserID).Order("CreatedAt ASC").Delete(ctx)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				repo.logger.Error(domain.LogRepository, "Logical error while Deleting a record by user_id", "error", err, "user_id", sessionReq.UserID)
-				return domain.ErrRepositoryInternalError
-			}
-			repo.logger.Error(domain.LogRepository, "Database error while Deleting a record by user_id", "error", err, "user_id", sessionReq.UserID)
-			return domain.ErrDatabaseInternalError
+	const MaxSessions = 5
+	var newSession repousersessions.UserSessions
+
+	err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var count int64
+		// 1. Count existing sessions
+		if err := tx.Model(&repousersessions.UserSessions{}).Where("user_id = ?", sessionReq.UserID).Count(&count).Error; err != nil {
+			return err
 		}
 
-		if err := gorm.G[repousersessions.UserSessions](repo.db).Create(ctx, &newSession); err != nil {
-			repo.logger.Error(domain.LogRepository, "Database error while creating new session", "error", err)
-			return domain.ErrDatabaseInternalError
+		// 2. If at limit, delete the oldest
+		if count >= MaxSessions {
+			var oldestSession repousersessions.UserSessions
+			// Find the oldest based on LastActive (or CreatedAt)
+			if err := tx.Where("user_id = ?", sessionReq.UserID).Order("last_active ASC").First(&oldestSession).Error; err != nil {
+				return err
+			}
+			// Delete ONLY the oldest record by its primary key
+			if err := tx.Delete(&oldestSession).Error; err != nil {
+				return err
+			}
 		}
-		return nil
-	}); err != nil {
+
+		// 3. Create the new session
+		newSession = repousersessions.UserSessions{
+			UserID:    sessionReq.UserID,
+			IPAddress: sessionReq.IPAddress,
+			UserAgent: sessionReq.UserAgent,
+			Device:    &sessionReq.Device,
+			Token:     sessionReq.Token,
+			ExpiresAt: sessionReq.ExpiresAt,
+		}
+
+		return tx.Create(&newSession).Error
+	})
+
+	if err != nil {
+		repo.logger.Error(domain.LogRepository, "Failed to manage session limit", "error", err)
 		return nil, domain.ErrDatabaseInternalError
 	}
 
