@@ -196,3 +196,79 @@ func (s *UserSerivce) ResendEmailVerificationToken(ctx context.Context, email st
 
 	return s.repo.RotateVerificationToken(ctx, *oldID, "invalidated", &newVer)
 }
+
+func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*ports.LoginResponse, error) {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	if err := isValidEmail(email); err != nil {
+		return nil, domain.ErrInvalidEmail
+	}
+	if req.Password == "" {
+		return nil, domain.ErrInvaidPassword
+	}
+
+	userRecord, err := s.repo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case userRecord.UserStatus == "pending_verification":
+		return nil, domain.ErrUserNotVerified
+	case userRecord.UserStatus == "banned":
+		return nil, domain.ErrUserAccountBanned
+	case userRecord.UserStatus == "suspended":
+		return nil, domain.ErrUserAccountSuspended
+	}
+	sessoinCount, err := s.repo.GetUserSessionCountByUserID(ctx, userRecord.ID)
+	if err != nil {
+		return nil, err
+	}
+	expirationTime := time.Now().Add(8 * time.Hour)
+	token, err := GenerateSecureToken()
+	if err != nil {
+		return nil, domain.ErrDomainInternalError
+	}
+
+	sessionReq := ports.CreateUserSessionRequest{
+		UserID:    userRecord.ID,
+		IPAddress: req.IPAddress,
+		UserAgent: req.UserAgent,
+		Device:    req.Device,
+		Token:     token,
+		ExpiresAt: expirationTime,
+	}
+	var newSession *ports.CreateUserSessionResponse
+
+	switch {
+	case sessoinCount < 0:
+		s.logger.Debug(domain.LogService, "User cannot have a negative amount of active sessions", "error", err, "user_id", userRecord.ID)
+		return nil, domain.ErrDomainInternalError
+	case sessoinCount > 5:
+		s.logger.Debug(domain.LogService, "User cannot have more than 5 active sessions", "error", err, "user_id", userRecord.ID)
+		return nil, domain.ErrDomainInternalError
+	}
+
+	if sessoinCount == 5 {
+		newSession, err = s.repo.CreateAndDeleteOldUserSession(ctx, &sessionReq)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		newSession, err = s.repo.CreateUserSession(ctx, &sessionReq)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	response := ports.LoginResponse{
+		SessionID:    newSession.ID,
+		UserID:       newSession.UserID,
+		RefreshToken: newSession.Token,
+		AccessToken:  "sciascoiuaioc",
+
+		RefreshTokenExpiresAt: newSession.ExpiresAt,
+		AccessTokenExpiresAt:  time.Now().Add(15 * time.Minute),
+	}
+
+	return &response, nil
+}

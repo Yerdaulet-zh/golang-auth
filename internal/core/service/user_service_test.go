@@ -25,6 +25,9 @@ type mockUserRepo struct {
 	rotateVerificationToken                func(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error
 	getCountsOfVerificationRecordsByUserID func(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error)
 	updateUserVerificationTokenStatus      func(ctx context.Context, tokenID uuid.UUID, status string) error
+	getUserSessionCountByUserID            func(ctx context.Context, userID uuid.UUID) (int64, error)
+	createAndDeleteOldUserSession          func(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error)
+	createUserSession                      func(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error)
 }
 
 func (m *mockUserRepo) GetUserByEmail(ctx context.Context, email string) (*repouser.User, error) {
@@ -61,6 +64,18 @@ func (m *mockUserRepo) GetCountsOfVerificationRecordsByUserID(ctx context.Contex
 
 func (m *mockUserRepo) UpdateUserVerificationTokenStatus(ctx context.Context, tokenID uuid.UUID, status string) error {
 	return m.updateUserVerificationTokenStatus(ctx, tokenID, status)
+}
+
+func (m *mockUserRepo) GetUserSessionCountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return m.getUserSessionCountByUserID(ctx, userID)
+}
+
+func (m *mockUserRepo) CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
+	return m.createAndDeleteOldUserSession(ctx, sessionReq)
+}
+
+func (m *mockUserRepo) CreateUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
+	return m.createUserSession(ctx, sessionReq)
 }
 
 func TestUserService_Register(t *testing.T) {

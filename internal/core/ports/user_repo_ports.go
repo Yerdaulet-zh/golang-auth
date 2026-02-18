@@ -18,4 +18,10 @@ type UserRepoPorts interface {
 	RotateVerificationToken(ctx context.Context, recordID uuid.UUID, status string, req *userverification.UserVerification) error
 	GetCountsOfVerificationRecordsByUserID(ctx context.Context, user_id uuid.UUID, timeDuration time.Time) (int64, error)
 	UpdateUserVerificationTokenStatus(ctx context.Context, tokenID uuid.UUID, status string) error
+
+	// Login
+	// CreateUserSession(ctx context.Context, session *repousersessions.UserSessions) error
+	GetUserSessionCountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+	CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
+	CreateUserSession(ctx context.Context, sessionReq *CreateUserSessionRequest) (*CreateUserSessionResponse, error)
 }

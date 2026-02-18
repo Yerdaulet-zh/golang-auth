@@ -6,6 +6,7 @@ import (
 	"time"
 
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
+	repousersessions "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_sessions"
 	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
@@ -212,4 +213,87 @@ func (repo *UserRepository) UpdateUserVerificationTokenStatus(ctx context.Contex
 		return domain.ErrRepositoryInternalError
 	}
 	return nil
+}
+
+// func (repo *UserRepository) CreateUserSession(ctx context.Context, session *repousersessions.UserSessions) error {
+// 	if err := gorm.G[repousersessions.UserSessions](repo.db).Create(ctx, session); err != nil {
+// 		repo.logger.Error(domain.LogRepository, "Error while creating a user session", "error", err, "user_id", session.UserID)
+// 		return domain.ErrDatabaseInternalError
+// 	}
+// 	return nil
+// }
+
+func (repo *UserRepository) GetUserSessionCountByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	count, err := gorm.G[repousersessions.UserSessions](repo.db).Where("user_id = ?", userID).Count(ctx, "id")
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			repo.logger.Debug(domain.LogRepository, "User session not found", "error", err, "user_id", userID)
+			return 0, nil
+		}
+		repo.logger.Error(domain.LogRepository, "Error while Getting the User session count by ID", "error", err, "user_id", userID)
+		return 0, domain.ErrDatabaseInternalError
+	}
+	return count, nil
+}
+
+func (repo *UserRepository) CreateAndDeleteOldUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
+	newSession := repousersessions.UserSessions{
+		UserID:    sessionReq.UserID,
+		IPAddress: sessionReq.IPAddress,
+		UserAgent: sessionReq.UserAgent,
+		Device:    &sessionReq.Device,
+		Token:     sessionReq.Token,
+		ExpiresAt: sessionReq.ExpiresAt,
+	}
+	if err := repo.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		_, err := gorm.G[repousersessions.UserSessions](repo.db).Where("user_id = ?", sessionReq.UserID).Order("CreatedAt ASC").Delete(ctx)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				repo.logger.Error(domain.LogRepository, "Logical error while Deleting a record by user_id", "error", err, "user_id", sessionReq.UserID)
+				return domain.ErrRepositoryInternalError
+			}
+			repo.logger.Error(domain.LogRepository, "Database error while Deleting a record by user_id", "error", err, "user_id", sessionReq.UserID)
+			return domain.ErrDatabaseInternalError
+		}
+
+		if err := gorm.G[repousersessions.UserSessions](repo.db).Create(ctx, &newSession); err != nil {
+			repo.logger.Error(domain.LogRepository, "Database error while creating new session", "error", err)
+			return domain.ErrDatabaseInternalError
+		}
+		return nil
+	}); err != nil {
+		return nil, domain.ErrDatabaseInternalError
+	}
+
+	return &ports.CreateUserSessionResponse{
+		ID:         newSession.ID,
+		UserID:     newSession.UserID,
+		Token:      newSession.Token,
+		ExpiresAt:  newSession.ExpiresAt,
+		LastActive: newSession.LastActive,
+	}, nil
+}
+
+func (repo *UserRepository) CreateUserSession(ctx context.Context, sessionReq *ports.CreateUserSessionRequest) (*ports.CreateUserSessionResponse, error) {
+	newSession := repousersessions.UserSessions{
+		UserID:    sessionReq.UserID,
+		IPAddress: sessionReq.IPAddress,
+		UserAgent: sessionReq.UserAgent,
+		Device:    &sessionReq.Device,
+		Token:     sessionReq.Token,
+		ExpiresAt: sessionReq.ExpiresAt,
+	}
+	err := gorm.G[repousersessions.UserSessions](repo.db).Create(ctx, &newSession)
+	if err != nil {
+		repo.logger.Error(domain.LogRepository, "Database error while creating new session", "error", err)
+		return nil, domain.ErrDatabaseInternalError
+	}
+
+	return &ports.CreateUserSessionResponse{
+		ID:         newSession.ID,
+		UserID:     newSession.UserID,
+		Token:      newSession.Token,
+		ExpiresAt:  newSession.ExpiresAt,
+		LastActive: newSession.LastActive,
+	}, nil
 }

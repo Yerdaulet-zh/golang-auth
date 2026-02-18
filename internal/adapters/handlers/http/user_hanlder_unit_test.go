@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/golang-auth/internal/core/domain"
+	"github.com/golang-auth/internal/core/ports"
 	"github.com/golang-auth/internal/testutil"
 )
 
@@ -17,6 +18,7 @@ type mockUserService struct {
 	registerFn                   func(ctx context.Context, email, password string) error
 	verifyUserEmail              func(ctx context.Context, token string) error
 	resendEmailVerificationToken func(ctx context.Context, email string) error
+	login                        func(ctx context.Context, req *ports.LoginRequest) (*ports.LoginResponse, error)
 }
 
 func (m *mockUserService) Register(ctx context.Context, email, password string) error {
@@ -29,6 +31,10 @@ func (m *mockUserService) VerifyUserEmail(ctx context.Context, token string) err
 
 func (m *mockUserService) ResendEmailVerificationToken(ctx context.Context, email string) error {
 	return m.resendEmailVerificationToken(ctx, email)
+}
+
+func (m *mockUserService) Login(ctx context.Context, req *ports.LoginRequest) (*ports.LoginResponse, error) {
+	return m.login(ctx, req)
 }
 
 func TestUserHandler_Register_Unit(t *testing.T) {

@@ -13,6 +13,10 @@ var (
 	ErrInvalidEmail            = errors.New("Invalid Email")
 	ErrDomainInternalError     = errors.New("Domain Internal error")
 	ErrUsedToken               = errors.New("The token already consumed")
+	ErrInvaidPassword          = errors.New("Invalid password")
+	ErrUserNotVerified         = errors.New("User accoutn is not verified")
+	ErrUserAccountBanned       = errors.New("User account banned")
+	ErrUserAccountSuspended    = errors.New("User account suspended")
 
 	// Repository
 	ErrUserAlreadyExists     = errors.New("There is no user with such email")

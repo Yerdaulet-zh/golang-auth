@@ -106,6 +106,61 @@ func (h *UserHandler) ResendVerificationToken(w http.ResponseWriter, r *http.Req
 	})
 }
 
+func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.writeJSONError(w, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeJSONError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+	ctx := r.Context()
+	loginRequest := ports.LoginRequest{
+		Email:     req.Email,
+		Password:  req.Password,
+		IPAddress: "0.0.0.0",
+		UserAgent: "Agent",
+		Device:    "iPad",
+	}
+	res, err := h.userService.Login(ctx, &loginRequest)
+	if err != nil {
+		h.mapErrorToResponse(w, err)
+		return
+	}
+
+	// Set Access Token Cookie (Short-lived)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "access_token",
+		Value:    res.AccessToken,
+		Expires:  res.AccessTokenExpiresAt,
+		HttpOnly: true,
+		Secure:   true, // Set to false only if developing on localhost without HTTPS
+		Path:     "/",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Set Refresh Token Cookie (Long-lived)
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    res.RefreshToken,
+		Expires:  res.RefreshTokenExpiresAt,
+		HttpOnly: true,
+		Secure:   true,
+		Path:     "/auth/refresh", // Optional: Only send this cookie to the refresh endpoint
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Return success response (usually excluding the tokens from the JSON body for security)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Login successful",
+		"user_id": res.UserID,
+	})
+}
+
 func (h *UserHandler) writeJSONError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -121,6 +176,14 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusConflict, domain.ErrUserAlreadyExists.Error())
 	case errors.Is(err, domain.ErrUserAlreadyVerified):
 		h.writeJSONError(w, http.StatusConflict, domain.ErrUserAlreadyVerified.Error())
+
+	// 403 Forbidden
+	case errors.Is(err, domain.ErrUserNotVerified):
+		h.writeJSONError(w, http.StatusForbidden, domain.ErrUserNotVerified.Error())
+	case errors.Is(err, domain.ErrUserAccountBanned):
+		h.writeJSONError(w, http.StatusForbidden, domain.ErrUserAccountBanned.Error())
+	case errors.Is(err, domain.ErrUserAccountSuspended):
+		h.writeJSONError(w, http.StatusForbidden, domain.ErrUserAccountSuspended.Error())
 
 	// 404 Not Found
 	case errors.Is(err, domain.ErrNotFound):
@@ -151,6 +214,8 @@ func (h *UserHandler) mapErrorToResponse(w http.ResponseWriter, err error) {
 		h.writeJSONError(w, http.StatusBadRequest, domain.ErrUserNotFound.Error())
 	case errors.Is(err, domain.ErrUsedToken):
 		h.writeJSONError(w, http.StatusBadRequest, domain.ErrUsedToken.Error())
+	case errors.Is(err, domain.ErrInvaidPassword):
+		h.writeJSONError(w, http.StatusBadRequest, domain.ErrInvaidPassword.Error())
 
 	// 429
 	case errors.Is(err, domain.ErrTooManyRequests):

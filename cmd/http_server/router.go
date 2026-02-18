@@ -35,6 +35,7 @@ func MapBusinessRoutes(
 	mux.HandleFunc("GET /v1/register/verify", userHandler.VerifyUserEmail)
 	mux.HandleFunc("POST /v1/register/resend-verification-token", userHandler.ResendVerificationToken)
 
+	mux.HandleFunc("POST /v1/login", userHandler.Login)
 	middlewares := []Middleware{
 		middleware.LoggingMiddleware(logger),                   // 3. Log everything (including blocks)
 		middleware.IPRateLimiter(logger, rdb, 10, time.Minute), // 2. Then check limit
