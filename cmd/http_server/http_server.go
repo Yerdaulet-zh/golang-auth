@@ -45,7 +45,7 @@ func Run(ctx context.Context, logger ports.Logger, handler http.Handler, addr st
 	return s.Shutdown(shutdownCtx)
 }
 
-func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client, ports.EventPublisher) {
+func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client, ports.EventPublisher, *config.JWTTokenKeys) {
 	// Configuration
 	cfg, err := config.NewLoggingConfig()
 	if err != nil {
@@ -106,5 +106,12 @@ func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client, ports.Event
 
 	logger.Info("Successful AWS SQS initialization", "region", awsConfig.Region)
 
-	return logger, client, rdb, publisher
+	// Load JWT keys
+	jwtKeys, err := config.NewJWTConfig()
+	if err != nil {
+		logger.Fatal("Error while loading JWT keys", "error", err)
+	}
+	logger.Info("Successful loading of JWT keys")
+
+	return logger, client, rdb, publisher, jwtKeys
 }

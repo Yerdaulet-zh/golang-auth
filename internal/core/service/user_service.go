@@ -267,6 +267,8 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 		}
 	}
 
+	// Generate JWT token
+
 	response := ports.LoginResponse{
 		SessionID:    newSession.ID,
 		UserID:       newSession.UserID,

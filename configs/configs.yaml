@@ -31,3 +31,7 @@ logging:
       container: "api-service"
       stack: "monitoring"
       env: "development"
+
+jwt:
+  pubPath: "keys/public.pem"
+  privPath: "keys/private.pem"

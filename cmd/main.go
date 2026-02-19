@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/awnumar/memguard"
 	httpserver "github.com/golang-auth/cmd/http_server"
 	"github.com/golang-auth/internal/adapters/config"
 	"github.com/golang-auth/internal/adapters/repository"
@@ -16,7 +17,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	logger, client, rdb, publisher := httpserver.LoadComponents()
+	memguard.CatchInterrupt()
+	defer memguard.Purge()
+
+	logger, client, rdb, publisher, jwtKeys := httpserver.LoadComponents()
+	_ = jwtKeys
 
 	defer func() {
 		logger.Info("Closing infrastructure connections...")
