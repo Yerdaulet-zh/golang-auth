@@ -41,7 +41,7 @@ func main() {
 	reg := prometheus.NewRegistry()
 
 	userRepo := repository.NewUserRepository(client.DB, logger)
-	userService := service.NewUserService(userRepo, logger, publisher)
+	userService := service.NewUserService(userRepo, logger, publisher, jwtKeys)
 
 	mapBusinessHandler := httpserver.MapBusinessRoutes(logger, rdb, userService)
 	mapManagementRoutes := httpserver.MapManagementRoutes(logger, client, reg)

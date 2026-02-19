@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-auth/internal/adapters/config"
 	repouser "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user"
 	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
@@ -190,7 +191,7 @@ func TestUserService_Register(t *testing.T) {
 				tt.setupMock(mockRepo)
 			}
 
-			svc := NewUserService(mockRepo, &testutil.NoopLogger{}, &testutil.NoPublisher{})
+			svc := NewUserService(mockRepo, &testutil.NoopLogger{}, &testutil.NoPublisher{}, &config.JWTTokenKeys{})
 
 			// Execute
 			err := svc.Register(context.Background(), tt.email, tt.password)

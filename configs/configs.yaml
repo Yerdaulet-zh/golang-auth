@@ -33,5 +33,7 @@ logging:
       env: "development"
 
 jwt:
+  KID: "v1"
   pubPath: "keys/public.pem"
   privPath: "keys/private.pem"
+  durationInMinute: 15

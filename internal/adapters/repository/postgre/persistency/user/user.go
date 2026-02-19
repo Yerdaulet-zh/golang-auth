@@ -10,7 +10,7 @@ import (
 
 type User struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	Email        string    `gorm:"type:varchar(255);unique;index;not null"`
+	Email        string    `gorm:"type:varchar(255);uniqueIndex:idx_email_active,where:deleted_at IS NULL;not null"`
 	UserStatus   string    `gorm:"type:user_status;default:pending_verification;not null"`
 	IsMFAEnabled bool      `gorm:"type:boolean;default:false;not null"`
 

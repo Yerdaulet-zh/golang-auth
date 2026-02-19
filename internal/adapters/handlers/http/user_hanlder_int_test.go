@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/golang-auth/internal/adapters/config"
 	"github.com/golang-auth/internal/adapters/repository"
 	"github.com/golang-auth/internal/core/service"
 	"github.com/golang-auth/internal/testutil"
@@ -40,7 +41,7 @@ func TestUserHandler_Register_Integration(t *testing.T) {
 
 	// Setup real layers with the global DB
 	repo := repository.NewUserRepository(globalDB, &testutil.NoopLogger{})
-	svc := service.NewUserService(repo, &testutil.NoopLogger{}, &testutil.NoPublisher{})
+	svc := service.NewUserService(repo, &testutil.NoopLogger{}, &testutil.NoPublisher{}, &config.JWTTokenKeys{})
 	handler := NewUserHandler(svc, &testutil.NoopLogger{})
 
 	t.Run("Integration: Successful Registration and Duplicate Check", func(t *testing.T) {

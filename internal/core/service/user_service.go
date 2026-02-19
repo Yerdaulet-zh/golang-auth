@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-auth/internal/adapters/config"
 	userverification "github.com/golang-auth/internal/adapters/repository/postgre/persistency/user_verification"
 	"github.com/golang-auth/internal/core/domain"
 	"github.com/golang-auth/internal/core/ports"
@@ -17,13 +18,15 @@ type UserSerivce struct {
 	repo      ports.UserRepoPorts
 	logger    ports.Logger
 	publisher ports.EventPublisher
+	jwtConfig *config.JWTTokenKeys
 }
 
-func NewUserService(repo ports.UserRepoPorts, logger ports.Logger, publisher ports.EventPublisher) *UserSerivce {
+func NewUserService(repo ports.UserRepoPorts, logger ports.Logger, publisher ports.EventPublisher, jwtConfig *config.JWTTokenKeys) *UserSerivce {
 	return &UserSerivce{
 		repo:      repo,
 		logger:    logger,
 		publisher: publisher,
+		jwtConfig: jwtConfig,
 	}
 }
 
@@ -235,6 +238,7 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 	expirationTime := time.Now().Add(8 * time.Hour)
 	token, err := GenerateSecureToken()
 	if err != nil {
+		s.logger.Error(domain.LogService, "Error while generatig session token", "error", err)
 		return nil, domain.ErrDomainInternalError
 	}
 
@@ -268,15 +272,21 @@ func (s *UserSerivce) Login(ctx context.Context, req *ports.LoginRequest) (*port
 	}
 
 	// Generate JWT token
+	jti, err := GenerateSecureToken()
+	if err != nil {
+		s.logger.Error(domain.LogService, "Error while generating a random token", "error", err)
+		return nil, domain.ErrDomainInternalError
+	}
+	jwtToken, err := s.jwtConfig.SignToken(jti)
 
 	response := ports.LoginResponse{
 		SessionID:    newSession.ID,
 		UserID:       newSession.UserID,
 		RefreshToken: newSession.Token,
-		AccessToken:  "sciascoiuaioc",
+		AccessToken:  jwtToken,
 
 		RefreshTokenExpiresAt: newSession.ExpiresAt,
-		AccessTokenExpiresAt:  time.Now().Add(15 * time.Minute),
+		AccessTokenExpiresAt:  time.Now().Add(s.jwtConfig.Duration),
 	}
 
 	return &response, nil

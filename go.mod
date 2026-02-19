@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	ariga.io/atlas-go-sdk v0.7.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/lib/pq v1.11.2
 	github.com/spf13/viper v1.21.0

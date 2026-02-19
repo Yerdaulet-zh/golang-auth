@@ -107,7 +107,7 @@ func LoadComponents() (ports.Logger, *postgre.Client, *redis.Client, ports.Event
 	logger.Info("Successful AWS SQS initialization", "region", awsConfig.Region)
 
 	// Load JWT keys
-	jwtKeys, err := config.NewJWTConfig()
+	jwtKeys, err := config.NewJWTConfig(logger)
 	if err != nil {
 		logger.Fatal("Error while loading JWT keys", "error", err)
 	}
